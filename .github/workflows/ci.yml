@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: ./build.sh
+      - name: Package
+        run: cd build && ditto -c -k --keepParent Snappy.app Snappy.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Snappy
+          path: build/Snappy.zip
