@@ -16,7 +16,7 @@ struct WindowTarget {
 final class OverlayView: NSView {
     let image: CGImage
     let windows: [WindowTarget] // front-to-back
-    var onCapture: (CGRect) -> Void = { _ in }
+    var onCapture: (CGImage) -> Void = { _ in }
     var onCaptureScreen: () -> Void = {}
     var onCaptureWindow: (CGWindowID) -> Void = { _ in }
     var onCancel: () -> Void = {}
@@ -27,10 +27,19 @@ final class OverlayView: NSView {
     private var hoveredWindow: WindowTarget?
 
     private(set) var selection: CGRect = .zero
-    private enum Drag { case none, create(start: CGPoint), move(offset: CGPoint), resize(left: Bool, right: Bool, bottom: Bool, top: Bool) }
+    private enum Drag { case none, create(start: CGPoint), move(offset: CGPoint), resize(left: Bool, right: Bool, bottom: Bool, top: Bool), draw(start: CGPoint) }
     private var drag: Drag = .none
     private let handleSize: CGFloat = 10
-    private let buttonSize: CGFloat = 44
+
+    // Markup
+    private enum BarItem { case tool(MarkupTool), color(Int), undo, capture }
+    private var tool: MarkupTool?
+    private var colorIndex = 0
+    private var color: NSColor { Markup.colors[colorIndex] }
+    private var annotations: [Annotation] = []
+    private var draft: Annotation?
+    private var textField: NSTextField?
+    private lazy var pixelatedImage = Markup.pixelated(image, pointScale: CGFloat(image.width) / bounds.width)
 
     init(frame: CGRect, image: CGImage, windows: [WindowTarget], selection: CGRect? = nil) {
         self.image = image
@@ -68,14 +77,29 @@ final class OverlayView: NSView {
         ]
     }
 
-    private var captureButtonRect: CGRect {
+    /// The bar attached to the selection: markup tools, colors, undo and the capture button.
+    private func selectionBar() -> (rect: CGRect, items: [(BarItem, CGRect)]) {
+        let h: CGFloat = 44
+        var items: [(BarItem, CGRect)] = []
+        var x: CGFloat = 6
+        func add(_ item: BarItem, _ size: CGFloat, gap: CGFloat = 2) {
+            items.append((item, CGRect(x: x, y: (h - size) / 2, width: size, height: size)))
+            x += size + gap
+        }
+        for t in MarkupTool.allCases { add(.tool(t), 32) }
+        x += 8
+        for i in Markup.colors.indices { add(.color(i), 24) }
+        x += 8
+        add(.undo, 32, gap: 6)
+        add(.capture, 36, gap: 0)
+        let w = x + 6
+
         let gap: CGFloat = 12
-        var y = selection.minY - gap - buttonSize           // below the selection
-        if y < 8 { y = selection.maxY + gap }                // or above
-        if y + buttonSize > bounds.maxY - 8 { y = selection.minY + gap } // or inside
-        var x = selection.midX - buttonSize / 2
-        x = min(max(x, 8), bounds.maxX - buttonSize - 8)
-        return CGRect(x: x, y: y, width: buttonSize, height: buttonSize)
+        var rect = CGRect(x: selection.midX - w / 2, y: selection.minY - gap - h, width: w, height: h) // below
+        rect.origin.x = min(max(rect.minX, 8), bounds.maxX - w - 8)
+        if rect.minY < 8 || rect.intersects(toolbarRect) { rect.origin.y = selection.maxY + gap }      // or above
+        if rect.maxY > bounds.maxY - 8 { rect.origin.y = selection.maxY - gap - h }                    // or inside
+        return (rect, items.map { ($0.0, $0.1.offsetBy(dx: rect.minX, dy: rect.minY)) })
     }
 
     private func handleRects() -> [(CGRect, Bool, Bool, Bool, Bool)] {
@@ -128,6 +152,8 @@ final class OverlayView: NSView {
             return
         }
 
+        drawAnnotations()
+
         // Border + handles.
         NSColor.white.setStroke()
         let border = NSBezierPath(rect: selection.insetBy(dx: -0.5, dy: -0.5))
@@ -151,16 +177,49 @@ final class OverlayView: NSView {
         NSBezierPath(roundedRect: bg, xRadius: 4, yRadius: 4).fill()
         (label as NSString).draw(at: CGPoint(x: bg.minX + 6, y: bg.minY + 2), withAttributes: attrs)
 
-        // Capture button.
-        let b = captureButtonRect
-        NSColor.white.setFill()
-        NSBezierPath(ovalIn: b).fill()
-        NSColor.systemBlue.setFill()
-        NSBezierPath(ovalIn: b.insetBy(dx: 4, dy: 4)).fill()
-        if let cam = NSImage(systemSymbolName: "camera.fill", accessibilityDescription: "Capture")?
-            .withSymbolConfiguration(.init(pointSize: 16, weight: .semibold).applying(.init(paletteColors: [.white]))) {
-            let cs = cam.size
-            cam.draw(in: CGRect(x: b.midX - cs.width / 2, y: b.midY - cs.height / 2, width: cs.width, height: cs.height))
+        drawSelectionBar()
+    }
+
+    private func drawAnnotations() {
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: selection).addClip()
+        for a in annotations { a.draw(pixelated: pixelatedImage, viewBounds: bounds) }
+        draft?.draw(pixelated: pixelatedImage, viewBounds: bounds)
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
+    private func drawSymbol(_ name: String, in rect: CGRect, size: CGFloat, color: NSColor = .white) {
+        let config = NSImage.SymbolConfiguration(pointSize: size, weight: .semibold).applying(.init(paletteColors: [color]))
+        guard let icon = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(config) else { return }
+        icon.draw(in: CGRect(x: rect.midX - icon.size.width / 2, y: rect.midY - icon.size.height / 2, width: icon.size.width, height: icon.size.height))
+    }
+
+    private func drawSelectionBar() {
+        let bar = selectionBar()
+        NSColor(white: 0.12, alpha: 0.92).setFill()
+        NSBezierPath(roundedRect: bar.rect, xRadius: 12, yRadius: 12).fill()
+        for (item, r) in bar.items {
+            switch item {
+            case .tool(let t):
+                if t == tool {
+                    NSColor.white.withAlphaComponent(0.22).setFill()
+                    NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7).fill()
+                }
+                drawSymbol(t.symbol, in: r, size: 14)
+            case .color(let i):
+                Markup.colors[i].setFill()
+                NSBezierPath(ovalIn: r.insetBy(dx: 4, dy: 4)).fill()
+                NSColor.white.withAlphaComponent(i == colorIndex ? 1 : 0.35).setStroke()
+                let ring = NSBezierPath(ovalIn: r.insetBy(dx: i == colorIndex ? 1.5 : 4, dy: i == colorIndex ? 1.5 : 4))
+                ring.lineWidth = i == colorIndex ? 2 : 1
+                ring.stroke()
+            case .undo:
+                drawSymbol("arrow.uturn.backward", in: r, size: 13, color: .white.withAlphaComponent(annotations.isEmpty ? 0.3 : 1))
+            case .capture:
+                NSColor.systemBlue.setFill()
+                NSBezierPath(ovalIn: r).fill()
+                drawSymbol("camera.fill", in: r, size: 14)
+            }
         }
     }
 
@@ -197,6 +256,7 @@ final class OverlayView: NSView {
     }
 
     private func setMode(_ m: Mode) {
+        endText(keep: true)
         mode = m
         drag = .none
         hoveredWindow = m == .window ? window(at: convert(window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil)) : nil
@@ -227,6 +287,7 @@ final class OverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        endText(keep: true)
         if let (tool, _, _, _) = toolbarItems().first(where: { $0.1.contains(p) }) { use(tool); return }
         if toolbarRect.contains(p) { return }
         if mode == .window {
@@ -234,11 +295,17 @@ final class OverlayView: NSView {
             return
         }
         if hasSelection {
-            if captureButtonRect.contains(p) { capture(); return }
-            if event.clickCount == 2 && selection.contains(p) { capture(); return }
+            let bar = selectionBar()
+            if let (item, _) = bar.items.first(where: { $0.1.contains(p) }) { use(item); return }
+            if bar.rect.contains(p) { return }
             for (rect, l, r, b, t) in handleRects() where rect.insetBy(dx: -4, dy: -4).contains(p) {
                 drag = .resize(left: l, right: r, bottom: b, top: t); return
             }
+            if let tool, selection.contains(p) {
+                if tool == .text { beginText(at: p) } else { drag = .draw(start: p) }
+                return
+            }
+            if event.clickCount == 2 && selection.contains(p) { capture(); return }
             if selection.contains(p) {
                 drag = .move(offset: CGPoint(x: p.x - selection.minX, y: p.y - selection.minY)); return
             }
@@ -267,12 +334,25 @@ final class OverlayView: NSView {
             let flipX = minX > maxX, flipY = minY > maxY
             selection = CGRect(x: min(minX, maxX), y: min(minY, maxY), width: abs(maxX - minX), height: abs(maxY - minY))
             if flipX || flipY { drag = .resize(left: flipX ? !l : l, right: flipX ? !r : r, bottom: flipY ? !b : b, top: flipY ? !t : t) }
+        case .draw(let start):
+            let rect = CGRect(x: min(start.x, p.x), y: min(start.y, p.y), width: abs(p.x - start.x), height: abs(p.y - start.y))
+            switch tool {
+            case .arrow: draft = .arrow(from: start, to: p, color: color)
+            case .box: draft = .box(rect, color: color)
+            case .blur: draft = .blur(rect)
+            case .text, nil: break
+            }
         }
         needsDisplay = true
         window?.invalidateCursorRects(for: self)
     }
 
     override func mouseUp(with event: NSEvent) {
+        if case .draw(let start) = drag, let d = draft {
+            let p = convert(event.locationInWindow, from: nil)
+            if hypot(p.x - start.x, p.y - start.y) > 4 { annotations.append(d) }
+        }
+        draft = nil
         drag = .none
         if !hasSelection { selection = .zero }
         needsDisplay = true
@@ -286,14 +366,19 @@ final class OverlayView: NSView {
         if mode == .window { addCursorRect(bounds, cursor: .pointingHand); return }
         addCursorRect(bounds, cursor: .crosshair)
         guard hasSelection else { return }
-        addCursorRect(selection, cursor: .openHand)
+        addCursorRect(selection, cursor: tool == nil ? .openHand : tool == .text ? .iBeam : .crosshair)
         for (rect, _, _, _, _) in handleRects() { addCursorRect(rect.insetBy(dx: -4, dy: -4), cursor: .pointingHand) }
-        addCursorRect(captureButtonRect, cursor: .pointingHand)
+        addCursorRect(selectionBar().rect, cursor: .arrow)
     }
 
     // MARK: Keyboard
 
     override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) {
+            if Int(event.keyCode) == kVK_ANSI_Z { use(.undo) } else { super.keyDown(with: event) }
+            return
+        }
+        if mode == .selection, hasSelection, let t = MarkupTool(keyCode: Int(event.keyCode)) { use(.tool(t)); return }
         switch Int(event.keyCode) {
         case kVK_Escape: onCancel()
         case kVK_ANSI_S: use(.selection)
@@ -307,6 +392,7 @@ final class OverlayView: NSView {
     }
 
     private func capture() {
+        endText(keep: true)
         guard hasSelection else { return }
         let scale = CGFloat(image.width) / bounds.width
         // CGImage origin is top-left; view origin is bottom-left.
@@ -314,6 +400,97 @@ final class OverlayView: NSView {
                         y: (bounds.height - selection.maxY) * scale,
                         width: selection.width * scale,
                         height: selection.height * scale).integral
-        onCapture(px)
+        if let shot = composited()?.cropping(to: px) { onCapture(shot) }
+    }
+
+    /// The frozen screen with the markup drawn on top, at full pixel resolution.
+    private func composited() -> CGImage? {
+        guard !annotations.isEmpty else { return image }
+        let space = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
+        guard let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return image }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        let scale = CGFloat(image.width) / bounds.width
+        ctx.scaleBy(x: scale, y: scale)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+        for a in annotations { a.draw(pixelated: pixelatedImage, viewBounds: bounds) }
+        NSGraphicsContext.restoreGraphicsState()
+        return ctx.makeImage()
+    }
+
+    // MARK: Markup
+
+    private func use(_ item: BarItem) {
+        switch item {
+        case .tool(let t):
+            endText(keep: true)
+            tool = tool == t ? nil : t
+        case .color(let i):
+            colorIndex = i
+            textField?.textColor = color
+        case .undo:
+            if textField != nil { endText(keep: false) } else if !annotations.isEmpty { annotations.removeLast() }
+        case .capture:
+            capture()
+            return
+        }
+        needsDisplay = true
+        window?.invalidateCursorRects(for: self)
+    }
+
+    private var textLineHeight: CGFloat { ("Ag" as NSString).size(withAttributes: Markup.textAttributes(.white)).height }
+
+    private func beginText(at p: CGPoint) {
+        let field = NSTextField(string: "")
+        field.font = Markup.font
+        field.textColor = color
+        field.isBordered = false
+        field.isBezeled = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.usesSingleLineMode = true
+        field.cell?.isScrollable = true
+        field.wantsLayer = true
+        field.layer?.borderColor = NSColor.white.withAlphaComponent(0.7).cgColor
+        field.layer?.borderWidth = 1
+        field.layer?.cornerRadius = 3
+        field.delegate = self
+        field.frame = CGRect(x: p.x - 2, y: p.y - textLineHeight / 2, width: 60, height: textLineHeight + 2)
+        addSubview(field)
+        window?.makeFirstResponder(field)
+        textField = field
+    }
+
+    /// Turns the open text field (if any) into a text annotation, or discards it.
+    private func endText(keep: Bool) {
+        guard let field = textField else { return }
+        textField = nil
+        let text = field.stringValue
+        if keep, !text.trimmingCharacters(in: .whitespaces).isEmpty, let c = field.textColor {
+            annotations.append(.text(text, at: CGPoint(x: field.frame.minX + 2, y: field.frame.minY + 1), color: c))
+        }
+        field.removeFromSuperview()
+        window?.makeFirstResponder(self)
+        needsDisplay = true
+    }
+}
+
+extension OverlayView: NSTextFieldDelegate {
+    func controlTextDidChange(_ obj: Notification) {
+        guard let field = textField else { return }
+        let width = (field.stringValue as NSString).size(withAttributes: Markup.textAttributes(.white)).width
+        field.frame.size.width = max(60, width + 12)
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) { endText(keep: true) }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        switch selector {
+        case #selector(NSResponder.cancelOperation(_:)): endText(keep: false); return true
+        case #selector(NSResponder.insertNewline(_:)): endText(keep: true); return true
+        default: return false
+        }
     }
 }
