@@ -1,0 +1,130 @@
+name: Release
+
+# Two ways to publish a release:
+# - Run this workflow from the Actions tab with a version: it bumps Info.plist, commits, tags,
+#   and publishes. Notes are the optional summary plus the commits since the last release.
+# - Push an annotated tag like v1.0.0 (matching CFBundleShortVersionString in Info.plist):
+#   the tag's message becomes the release notes.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, e.g. 1.1.0
+        required: true
+        type: string
+      summary:
+        description: Optional one-line summary shown above the list of changes
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # tags and history, for the changelog
+
+      - name: Resolve version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="${INPUT_VERSION#v}"
+            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Version must look like 1.2.3, got '$INPUT_VERSION'"
+              exit 1
+            fi
+            if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+              echo "::error::v$version already exists"
+              exit 1
+            fi
+            /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $version" Info.plist
+            build=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" Info.plist)
+            /usr/libexec/PlistBuddy -c "Set CFBundleVersion $((build + 1))" Info.plist
+          else
+            version=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Info.plist)
+            if [[ "v$version" != "$GITHUB_REF_NAME" ]]; then
+              echo "::error::Tag $GITHUB_REF_NAME doesn't match Info.plist version $version"
+              exit 1
+            fi
+          fi
+          echo "TAG=v$version" >> "$GITHUB_ENV"
+
+      # Every release is signed with the same self-signed certificate, so users keep their
+      # Screen Recording permission across updates.
+      - name: Restore signing certificate
+        env:
+          SIGNING_P12_BASE64: ${{ secrets.SIGNING_P12_BASE64 }}
+        run: |
+          if [[ -z "$SIGNING_P12_BASE64" ]]; then
+            echo "::error::The SIGNING_P12_BASE64 secret is not set"
+            exit 1
+          fi
+          mkdir -p signing
+          echo "$SIGNING_P12_BASE64" | base64 --decode > signing/id.p12
+
+      - name: Build and package
+        run: ./release.sh
+
+      - name: Write release notes
+        env:
+          SUMMARY: ${{ inputs.summary }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            previous=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+            {
+              if [[ -n "$SUMMARY" ]]; then printf '%s\n\n' "$SUMMARY"; fi
+              echo "**Changes**"
+              echo
+              git log --no-merges --pretty='- %s' ${previous:+$previous..}HEAD | grep -v '^- Bump version to ' || true
+            } > notes.md
+          else
+            git tag -l --format='%(contents)' "$TAG" > notes.md
+          fi
+          cat >> notes.md <<'NOTES'
+
+          **Install:** `brew install --cask beqaabu/tap/snappy`, or unzip, move `Snappy.app` to Applications and open it. It isn't signed with an Apple Developer ID, so the first time macOS will block it: click **Open Anyway** in System Settings → Privacy & Security. Then grant Screen Recording access when asked.
+          NOTES
+
+      # Only after the build succeeded: commit the version bump and tag it.
+      - name: Commit version bump and tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump version to ${TAG#v}"
+          git tag -a "$TAG" -F notes.md
+          git push origin "HEAD:$GITHUB_REF_NAME" "$TAG"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$TAG" dist/*.zip --title "Snappy ${TAG#v}" --notes-file notes.md
+
+      # Needs a token that can push to beqaabu/homebrew-tap (GITHUB_TOKEN only covers this repo).
+      - name: Update Homebrew cask
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          version="${TAG#v}"
+          sha=$(shasum -a 256 "dist/Snappy-$version.zip" | cut -d' ' -f1)
+          if [[ -z "$TAP_TOKEN" ]]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN not set; update the cask by hand (version $version, sha256 $sha)"
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:$TAP_TOKEN@github.com/beqaabu/homebrew-tap.git" tap
+          cd tap
+          sed -i '' -E "s/^  version \"[^\"]*\"/  version \"$version\"/" Casks/snappy.rb
+          sed -i '' -E "s/^  sha256 \"[^\"]*\"/  sha256 \"$sha\"/" Casks/snappy.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "snappy $version"
+          git push
