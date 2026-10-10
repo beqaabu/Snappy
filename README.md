@@ -29,7 +29,7 @@ The capture covers the display the mouse pointer is on.
 Requires macOS 15.2 or later and the Xcode Command Line Tools (`xcode-select --install`).
 
 ```sh
-git clone https://github.com/<your-username>/Snappy.git
+git clone https://github.com/beqaabu/Snappy.git
 cd Snappy
 ./build.sh --install
 ```
