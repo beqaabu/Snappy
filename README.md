@@ -6,8 +6,10 @@ A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area
 - Freezes the screen while you choose, so menus and tooltips stay put
 - Drag to select, then move or resize the selection before capturing
 - One-click full-screen and single-window captures
+- Remembers your last selection, so repeat shots of the same area take one click
 - Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard
-- One Swift file, no dependencies
+- Shows a preview in the corner: click to open it, drag it into any app
+- A few small Swift files, no dependencies
 
 ## Usage
 
@@ -23,6 +25,8 @@ Press **⌘⇧2** (or click the menu bar icon → Take Screenshot). A toolbar ap
 In Selection mode, click the blue camera button, press `Return`/`Space`, or double-click the selection to capture.
 
 The capture covers the display the mouse pointer is on.
+
+After each capture a thumbnail appears in the bottom-right corner for 5 seconds (it stays while you hover it). Click it to open the screenshot, drag it into another app to share it, or click its ✕ to dismiss.
 
 ## Install
 
@@ -48,11 +52,12 @@ Click the menu bar icon and enable **Launch at Login**.
 
 ## Customizing
 
-Everything is in [`Snappy.swift`](Snappy.swift):
+The code is in [`Sources/`](Sources):
 
-- **Shortcut:** the `HotKey(keyCode:modifiers:)` call in `applicationDidFinishLaunching`
-- **Save folder:** `saveFolder` in `AppDelegate`
-- **Sound:** `save(_:)`
+- **Shortcut:** the `HotKey(keyCode:modifiers:)` call in `applicationDidFinishLaunching` ([`main.swift`](Sources/main.swift))
+- **Save folder:** `saveFolder` in `AppDelegate` ([`main.swift`](Sources/main.swift))
+- **Sound:** `save(_:on:)` ([`main.swift`](Sources/main.swift))
+- **Preview duration and size:** `visibleFor` and `maxSize` in [`Preview.swift`](Sources/Preview.swift)
 
 ## License
 
