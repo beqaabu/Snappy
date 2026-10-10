@@ -7,14 +7,15 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: ./build.sh
-      - name: Package
-        run: cd build && ditto -c -k --keepParent Snappy.app Snappy.zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Snappy
-          path: build/Snappy.zip
+      - uses: actions/checkout@v5
+
+      # Ad-hoc signed: a build check doesn't need the release certificate (and PRs from forks can't read secrets).
+      - name: Build universal app
+        run: ADHOC=1 ./build.sh
+
+      - name: Check architectures and deployment target
+        run: |
+          lipo -info build/Snappy.app/Contents/MacOS/Snappy
+          vtool -show-build build/Snappy.app/Contents/MacOS/Snappy | grep minos

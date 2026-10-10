@@ -30,7 +30,23 @@ After each capture a thumbnail appears in the bottom-right corner for 5 seconds 
 
 ## Install
 
-Requires macOS 15.2 or later and the Xcode Command Line Tools (`xcode-select --install`).
+Requires macOS 14 (Sonoma) or later, on Apple silicon or Intel.
+
+### Homebrew
+
+```sh
+brew install --cask beqaabu/tap/snappy
+```
+
+### Download
+
+Grab `Snappy.zip` from the [latest release](https://github.com/beqaabu/Snappy/releases/latest), unzip it and move `Snappy.app` to Applications.
+
+Snappy isn't signed with an Apple Developer ID, so the first time you open it macOS blocks it. Go to **System Settings → Privacy & Security** and click **Open Anyway**.
+
+### Build from source
+
+Needs the Xcode Command Line Tools (`xcode-select --install`).
 
 ```sh
 git clone https://github.com/beqaabu/Snappy.git
@@ -38,13 +54,14 @@ cd Snappy
 ./build.sh --install
 ```
 
-This builds `Snappy.app`, copies it to `/Applications` and launches it. Use `./build.sh` alone to only build into `build/`.
+This builds a universal `Snappy.app`, copies it to `/Applications` and launches it. Use `./build.sh` alone to only build into `build/`.
+
+The first build creates a self-signed code signing certificate in `signing/` (git-ignored). Keeping that certificate means macOS remembers Snappy's Screen Recording permission across rebuilds.
 
 ### Screen Recording permission
 
 On first launch macOS asks for Screen Recording permission. Enable Snappy in **System Settings → Privacy & Security → Screen & System Audio Recording**, then quit and reopen Snappy.
 
-The app is ad-hoc signed, so macOS may ask again after you rebuild it. Just re-enable it.
 
 ### Launch at login
 
@@ -58,6 +75,15 @@ The code is in [`Sources/`](Sources):
 - **Save folder:** `saveFolder` in `AppDelegate` ([`main.swift`](Sources/main.swift))
 - **Sound:** `save(_:on:)` ([`main.swift`](Sources/main.swift))
 - **Preview duration and size:** `visibleFor` and `maxSize` in [`Preview.swift`](Sources/Preview.swift)
+
+## Releasing
+
+Run the **Release** workflow from the Actions tab with a version like `1.1.0`. It bumps `Info.plist`, tags, builds, signs, publishes a GitHub release with the changelog, and updates the Homebrew cask.
+
+It needs two repository secrets:
+
+- `SIGNING_P12_BASE64`: `base64 -i signing/id.p12`, so every release is signed with the same certificate
+- `HOMEBREW_TAP_TOKEN` (optional): a token that can push to `beqaabu/homebrew-tap`. Without it, the workflow prints the new version and sha256 to put in the cask by hand.
 
 ## License
 
