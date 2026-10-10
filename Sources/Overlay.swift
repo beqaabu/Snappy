@@ -51,7 +51,7 @@ final class OverlayView: NSView {
     private func window(at p: CGPoint) -> WindowTarget? { windows.first { $0.rect.contains(p) } }
 
     private var toolbarRect: CGRect {
-        let w: CGFloat = 3 * 96 + 44 + 4 * 6 + 8, h: CGFloat = 56
+        let w: CGFloat = 364, h: CGFloat = 56 // 3 buttons × 96 + close 44 + gaps
         return CGRect(x: bounds.midX - w / 2, y: 32, width: w, height: h)
     }
 
