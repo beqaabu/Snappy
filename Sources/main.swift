@@ -131,11 +131,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let shot = try? await Self.grabWindow(id) { self?.save(shot, on: screen) } else { NSSound.beep() }
             }
         }
-        view.onCapture = { [weak self, weak view] rect in
+        view.onCapture = { [weak self, weak view] shot in
             guard let self, let view else { return }
             UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey)
             self.closeOverlay()
-            if let cropped = image.cropping(to: rect) { self.save(cropped, on: screen) }
+            self.save(shot, on: screen)
         }
         win.contentView = view
         overlay = win

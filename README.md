@@ -2,9 +2,12 @@
 
 A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area, a window or the whole screen, and click once to capture.
 
+![Snappy's overlay: a selection with an arrow, a box, text and a blurred token, plus the markup bar and the Selection / Screen / Window toolbar](docs/preview.png)
+
 - Lives in the menu bar, no Dock icon
 - Freezes the screen while you choose, so menus and tooltips stay put
 - Drag to select, then move or resize the selection before capturing
+- Quick markup on a selection: arrows, boxes, text and blur (for hiding passwords and personal info)
 - One-click full-screen and single-window captures
 - Remembers your last selection, so repeat shots of the same area take one click
 - Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard
@@ -23,6 +26,19 @@ Press **⌘⇧2** (or click the menu bar icon → Take Screenshot). A toolbar ap
 | ✕ | `Esc` | Cancel (right-click also cancels). |
 
 In Selection mode, click the blue camera button, press `Return`/`Space`, or double-click the selection to capture.
+
+### Markup
+
+A bar next to the selection has markup tools. Pick one, then draw inside the selection:
+
+| Tool | Key | |
+|---|---|---|
+| Arrow | `A` | Drag from the tail to the tip |
+| Box | `R` | Drag a rectangle outline |
+| Text | `T` | Click where the text goes, type, press `Return` |
+| Blur | `B` | Drag over anything you want to hide; it's pixelated in the saved image |
+
+Pick a colour from the swatches, and undo with the ↩ button or `⌘Z`. Click the active tool again to go back to moving the selection.
 
 The capture covers the display the mouse pointer is on.
 
@@ -75,6 +91,9 @@ The code is in [`Sources/`](Sources):
 - **Save folder:** `saveFolder` in `AppDelegate` ([`main.swift`](Sources/main.swift))
 - **Sound:** `save(_:on:)` ([`main.swift`](Sources/main.swift))
 - **Preview duration and size:** `visibleFor` and `maxSize` in [`Preview.swift`](Sources/Preview.swift)
+- **Markup colours, line width and font:** [`Markup.swift`](Sources/Markup.swift)
+
+The README image is rendered from the real overlay over a mock desktop: `./tools/render-preview.sh`.
 
 ## Releasing
 
