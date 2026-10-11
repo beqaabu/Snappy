@@ -53,8 +53,11 @@ Requires macOS 14 (Sonoma) or later, on Apple silicon or Intel.
 ### Homebrew
 
 ```sh
-brew install --cask beqaabu/tap/snappy
+brew trust --tap beqaabu/tap   # Homebrew 6+ asks you to trust third-party taps once
+brew install --cask beqaabu/tap/snappy-app
 ```
+
+The cask is `snappy-app` because `snappy` is already Homebrew's name for Google's compression library.
 
 ### Download
 
