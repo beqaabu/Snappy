@@ -4,6 +4,8 @@
 
 A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area, a window or the whole screen, and click once to capture.
 
+**Website:** [beqaabu.github.io/Snappy](https://beqaabu.github.io/Snappy/), with a demo you can try in the browser.
+
 ![Snappy's overlay: a selection with an arrow, a box, text and a blurred token, plus the markup bar and the Selection / Screen / Window toolbar](docs/preview.png)
 
 - Lives in the menu bar, no Dock icon
@@ -100,7 +102,7 @@ The code is in [`Sources/`](Sources). Beyond what Settings covers:
 - **Preview duration and size:** `visibleFor` and `maxSize` in [`Preview.swift`](Sources/Preview.swift)
 - **Markup colours, line width and font:** [`Markup.swift`](Sources/Markup.swift)
 
-The README image is rendered from the real overlay over a mock desktop: `./tools/render-preview.sh`. The app icon is drawn in code: `./tools/make-icon.sh`.
+The README image is rendered from the real overlay over a mock desktop: `./tools/render-preview.sh`. The website lives in [`site/`](site); its link preview comes from `./tools/make-og.sh`. The app icon is drawn in code: `./tools/make-icon.sh`.
 
 ## Releasing
 

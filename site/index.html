@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snappy: Ubuntu-style screenshots for macOS</title>
+<meta name="description" content="Snappy is a tiny, free screenshot tool for macOS. Press one shortcut, drag a selection, move it, mark it up, and click once to capture. Or grab a window or the whole screen.">
+<meta property="og:title" content="Snappy">
+<meta property="og:description" content="Ubuntu-style screenshots for macOS: one shortcut, drag, mark up, click.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://beqaabu.github.io/Snappy/">
+<meta property="og:image" content="https://beqaabu.github.io/Snappy/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Snappy: a selection with an arrow, a box and a blurred token, plus Snappy's toolbars">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="icon.png">
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: rgba(0, 0, 0, 0.08);
+    --button-bg: #1d1d1f;
+    --button-text: #ffffff;
+    --blue: #2f6bf2;
+    --accent: #8b55cc;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0b0e;
+      --surface: #16161a;
+      --text: #f5f5f7;
+      --muted: #a1a1a6;
+      --line: rgba(255, 255, 255, 0.09);
+      --button-bg: #f5f5f7;
+      --button-text: #1d1d1f;
+      --accent: #b18cf0;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0b0e;
+    --surface: #16161a;
+    --text: #f5f5f7;
+    --muted: #a1a1a6;
+    --line: rgba(255, 255, 255, 0.09);
+    --button-bg: #f5f5f7;
+    --button-text: #1d1d1f;
+    --accent: #b18cf0;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+  kbd {
+    font: 600 0.85em/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    padding: 0.2em 0.45em;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--surface);
+    white-space: nowrap;
+  }
+
+  /* Header */
+  header { padding: 20px 0; }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 18px; text-decoration: none; }
+  .brand img { width: 30px; height: 30px; }
+  nav { display: flex; gap: 22px; font-size: 15px; }
+  nav a { text-decoration: none; color: var(--muted); }
+  nav a:hover { color: var(--text); }
+
+  /* Hero */
+  .hero { text-align: center; padding-top: 56px; padding-bottom: 28px; }
+  .hero h1 {
+    font-size: clamp(40px, 7vw, 76px);
+    line-height: 1.03;
+    letter-spacing: -0.035em;
+    margin: 0 auto 20px;
+    max-width: 15ch;
+    font-weight: 700;
+  }
+  .hero h1 .x { color: var(--accent); }
+  .hero p.lede { font-size: clamp(18px, 2.2vw, 22px); color: var(--muted); max-width: 36em; margin: 0 auto 32px; }
+  .ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 13px 22px; border-radius: 999px;
+    font-weight: 600; font-size: 16px; text-decoration: none;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); opacity: 0.85; }
+  .btn.primary { background: var(--button-bg); color: var(--button-text); }
+  .btn.secondary { border: 1px solid var(--line); background: var(--surface); }
+  .btn svg { width: 18px; height: 18px; }
+  .fineprint { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .brew {
+    display: inline-block; margin-top: 18px; padding: 10px 16px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line);
+    font: 500 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace; text-align: left; color: var(--text);
+    max-width: 100%; overflow-x: auto;
+  }
+  .brew .c { color: var(--muted); }
+
+  .shot { margin: 44px 0 0; }
+  .shot img {
+    display: block; width: 100%; height: auto; border-radius: 18px;
+    box-shadow: 0 30px 80px rgba(40, 20, 80, 0.35), 0 0 0 1px var(--line);
+  }
+  .shot figcaption { text-align: center; color: var(--muted); font-size: 15px; margin-top: 14px; }
+
+  /* Interactive demo */
+  .demo-section { padding-top: 56px; padding-bottom: 24px; }
+  .demo-section h2.try { font-size: clamp(26px, 3.2vw, 34px); letter-spacing: -0.02em; margin: 0 0 22px; text-align: center; }
+  .demo-caption {
+    display: flex; gap: 10px 18px; justify-content: center; align-items: center; flex-wrap: wrap;
+    font-size: 15px; color: var(--muted); margin: 18px 0 0; min-height: 2.4em; text-align: center;
+  }
+
+  .stage {
+    --u: 0.0625cqw; /* one unit of the 1600 × 1000 demo screen */
+    position: relative;
+    aspect-ratio: 16 / 10;
+    border-radius: 18px;
+    overflow: hidden;
+    container-type: inline-size;
+    box-shadow: 0 30px 80px rgba(40, 20, 80, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1);
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  }
+  .stage.active { touch-action: none; }
+  .desk { position: absolute; inset: 0; container-type: inline-size; --u: 0.0625cqw;
+    background: linear-gradient(125deg, #4369db 0%, #8c54cc 50%, #ee8590 100%); }
+  .menubar {
+    position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u) * 36);
+    display: flex; align-items: center; gap: calc(var(--u) * 26); padding: 0 calc(var(--u) * 24);
+    background: rgba(255, 255, 255, 0.22); color: #fff; font-size: calc(var(--u) * 17); font-weight: 500;
+  }
+  .menubar b { font-weight: 700; }
+  .menubar .clock { margin-left: auto; }
+
+  .mwin {
+    position: absolute; background: #fff; border-radius: calc(var(--u) * 14); overflow: hidden;
+    box-shadow: 0 calc(var(--u) * 14) calc(var(--u) * 40) rgba(0, 0, 0, 0.35);
+    color: #222;
+  }
+  .mwin .tb {
+    height: calc(var(--u) * 50); background: #f4f4f6; display: flex; align-items: center; justify-content: center;
+    position: relative; font-size: calc(var(--u) * 17); font-weight: 600; color: #444;
+  }
+  .mwin .tb .dots { position: absolute; left: calc(var(--u) * 20); display: flex; gap: calc(var(--u) * 9); }
+  .mwin .tb .dots i { width: calc(var(--u) * 15); height: calc(var(--u) * 15); border-radius: 50%; display: block; }
+  .mwin .tb .dots i:nth-child(1) { background: #ff5f57; } .mwin .tb .dots i:nth-child(2) { background: #febc2e; } .mwin .tb .dots i:nth-child(3) { background: #28c840; }
+
+  .win-notes { left: 9%; top: 11%; width: 46%; height: 72%; z-index: 2; }
+  .notes { padding: calc(var(--u) * 30) calc(var(--u) * 38); }
+  .notes h3 { margin: 0 0 calc(var(--u) * 26); font-size: calc(var(--u) * 38); letter-spacing: -0.02em; color: #000; }
+  .notes .item { display: flex; align-items: center; gap: calc(var(--u) * 14); font-size: calc(var(--u) * 23); margin-bottom: calc(var(--u) * 20); color: #222; }
+  .notes .item i { width: calc(var(--u) * 24); height: calc(var(--u) * 24); border-radius: calc(var(--u) * 7); background: #c9c9cf; display: grid; place-items: center; color: #fff; font-style: normal; font-size: calc(var(--u) * 17); font-weight: 700; flex: none; }
+  .notes .item.done { color: #8a8a90; }
+  .notes .item.done i { background: #34c759; }
+  .notes .label { margin-top: calc(var(--u) * 34); font-size: calc(var(--u) * 17); font-weight: 600; color: #8a8a90; }
+  .notes .token { margin-top: calc(var(--u) * 10); padding: calc(var(--u) * 14) calc(var(--u) * 18); background: #f1f1f4; border-radius: calc(var(--u) * 10);
+    font: calc(var(--u) * 22) ui-monospace, "SF Mono", Menlo, monospace; color: #222; }
+
+  .win-chart { left: 51%; top: 25%; width: 40%; height: 52%; z-index: 1; }
+  .chart { position: absolute; left: 0; right: 0; top: calc(var(--u) * 50); bottom: 0; display: flex; align-items: flex-end; gap: 4%; padding: 6% 7% 9%; }
+  .chart b { flex: 1; border-radius: calc(var(--u) * 7); background: #2f6bf2; display: block; }
+
+  /* Markup layers */
+  .blurs { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+  .blurs div { position: absolute; backdrop-filter: blur(calc(var(--u) * 9)); -webkit-backdrop-filter: blur(calc(var(--u) * 9)); background: rgba(255, 255, 255, 0.08); }
+  .marks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; overflow: visible; }
+
+  /* Overlay */
+  .ov { position: absolute; inset: 0; z-index: 10; cursor: crosshair; }
+  .ov[hidden] { display: none; }
+  .ov.win-mode { cursor: pointer; }
+  .dim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); pointer-events: none; }
+  .hole { position: absolute; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.45); pointer-events: none; }
+  .hole.sel { outline: 1px solid #fff; }
+  .hole.win { outline: calc(var(--u) * 4) solid #2f6bf2; outline-offset: calc(var(--u) * -4); border-radius: calc(var(--u) * 14); }
+  .handle {
+    position: absolute; width: calc(var(--u) * 16); height: calc(var(--u) * 16); min-width: 10px; min-height: 10px;
+    border-radius: 50%; background: #fff; border: 2px solid #2f6bf2; transform: translate(-50%, -50%); z-index: 2;
+  }
+  .handle[data-h="tl"], .handle[data-h="br"] { cursor: nwse-resize; }
+  .handle[data-h="tr"], .handle[data-h="bl"] { cursor: nesw-resize; }
+  .handle[data-h="t"], .handle[data-h="b"] { cursor: ns-resize; }
+  .handle[data-h="l"], .handle[data-h="r"] { cursor: ew-resize; }
+  .sizelabel {
+    position: absolute; transform: translateY(-100%); margin-top: -6px; padding: 2px 8px; border-radius: 5px;
+    background: rgba(0, 0, 0, 0.7); color: #fff; font: 600 max(11px, calc(var(--u) * 16)) ui-monospace, "SF Mono", Menlo, monospace; pointer-events: none; white-space: nowrap;
+  }
+  .hint {
+    position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); padding: calc(var(--u) * 14) calc(var(--u) * 24);
+    border-radius: calc(var(--u) * 14); background: rgba(0, 0, 0, 0.6); color: #fff; font-size: max(13px, calc(var(--u) * 24)); font-weight: 500; pointer-events: none; white-space: nowrap;
+  }
+
+  .bar {
+    position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 6);
+    padding: calc(var(--u) * 8); border-radius: calc(var(--u) * 16); background: rgba(31, 31, 33, 0.94);
+    cursor: default; z-index: 3;
+  }
+  .bar button {
+    font: inherit; color: #fff; background: none; border: 0; cursor: pointer; border-radius: calc(var(--u) * 10);
+    display: grid; place-items: center; padding: 0;
+  }
+  .bar button:hover { background: rgba(255, 255, 255, 0.1); }
+  .bar button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.22); }
+  .bar svg { width: 55%; height: 55%; }
+  .bar .sep { width: 1px; align-self: stretch; background: rgba(255, 255, 255, 0.2); margin: 0 calc(var(--u) * 6); }
+  .toolbar { left: 50%; bottom: calc(var(--u) * 34); transform: translateX(-50%); }
+  .toolbar button { width: calc(var(--u) * 130); height: calc(var(--u) * 78); font-size: max(10px, calc(var(--u) * 17)); font-weight: 600; gap: calc(var(--u) * 4); align-content: center; }
+  .toolbar button svg { width: calc(var(--u) * 30); height: calc(var(--u) * 30); }
+  .toolbar button.x { width: calc(var(--u) * 64); }
+  .markbar button { width: calc(var(--u) * 48); height: calc(var(--u) * 48); min-width: 22px; min-height: 22px; }
+  .markbar .swatch { width: calc(var(--u) * 38); height: calc(var(--u) * 38); min-width: 18px; min-height: 18px; border-radius: 50%; }
+  .markbar .swatch i { width: 62%; height: 62%; border-radius: 50%; display: block; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+  .markbar .swatch[aria-pressed="true"] { background: none; }
+  .markbar .swatch[aria-pressed="true"] i { box-shadow: 0 0 0 2px #fff; width: 70%; height: 70%; }
+  .markbar .cap { background: #2f6bf2; border-radius: 50%; width: calc(var(--u) * 54); height: calc(var(--u) * 54); }
+  .markbar .cap:hover { background: #3f7bff; }
+  .markbar button:disabled { opacity: 0.3; cursor: default; background: none; }
+
+  .start {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 9;
+    font: 600 max(14px, calc(var(--u) * 26)) -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    padding: calc(var(--u) * 22) calc(var(--u) * 36); border-radius: 999px; border: 0; cursor: pointer;
+    background: rgba(20, 20, 24, 0.82); color: #fff; box-shadow: 0 calc(var(--u) * 12) calc(var(--u) * 40) rgba(0, 0, 0, 0.35);
+    display: flex; align-items: center; gap: calc(var(--u) * 14); white-space: nowrap;
+  }
+  .start:hover { background: rgba(20, 20, 24, 0.92); }
+  .start kbd { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.25); color: #fff; }
+  .start[hidden] { display: none; }
+
+  .flash { position: absolute; inset: 0; background: #fff; z-index: 20; pointer-events: none; animation: flash 0.35s ease-out forwards; }
+  @keyframes flash { from { opacity: 0.85; } to { opacity: 0; } }
+
+  .thumb {
+    position: absolute; right: calc(var(--u) * 26); bottom: calc(var(--u) * 26); z-index: 15; cursor: pointer;
+    border-radius: calc(var(--u) * 10); overflow: hidden; border: calc(var(--u) * 4) solid rgba(255, 255, 255, 0.95);
+    box-shadow: 0 calc(var(--u) * 12) calc(var(--u) * 36) rgba(0, 0, 0, 0.4); animation: thumb-in 0.25s ease-out;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .thumb.out { opacity: 0; transform: translateX(20%); }
+  @keyframes thumb-in { from { opacity: 0; transform: translateX(30%); } }
+  .thumb .clip { position: relative; overflow: hidden; transform-origin: top left; }
+  .thumb .clone { position: absolute; container-type: inline-size; --u: 0.0625cqw; }
+
+  /* Sections */
+  section { padding: 72px 0; }
+  section h2 { font-size: clamp(30px, 4vw, 44px); letter-spacing: -0.025em; line-height: 1.1; margin: 0 0 14px; text-align: center; }
+  section p.sub { text-align: center; color: var(--muted); font-size: 19px; max-width: 34em; margin: 0 auto 48px; }
+
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 26px; box-shadow: var(--shadow); }
+  .card .icon { height: 34px; display: flex; align-items: center; gap: 6px; margin-bottom: 16px; color: var(--accent); }
+  .card .icon svg { width: 28px; height: 28px; }
+  .card h3 { margin: 0 0 6px; font-size: 19px; letter-spacing: -0.01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 16px; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: step; }
+  .step { padding: 26px; border-radius: 18px; border: 1px solid var(--line); background: var(--surface); }
+  .step::before {
+    counter-increment: step; content: counter(step);
+    display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--button-bg); color: var(--button-text); font-weight: 700; margin-bottom: 16px;
+  }
+  .step h3 { margin: 0 0 6px; font-size: 19px; }
+  .step p { margin: 0; color: var(--muted); font-size: 16px; }
+  .step code, .faq code { font: 500 0.88em ui-monospace, "SF Mono", Menlo, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0.15em 0.4em; display: inline-block; margin-top: 4px; overflow-wrap: anywhere; }
+
+  .faq { max-width: 760px; margin: 0 auto; }
+  details { border-bottom: 1px solid var(--line); padding: 18px 0; }
+  summary { cursor: pointer; font-weight: 600; font-size: 18px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--muted); font-weight: 400; font-size: 22px; line-height: 1; transition: transform 0.2s ease; }
+  details[open] summary::after { transform: rotate(45deg); }
+  details p { color: var(--muted); margin: 10px 0 0; }
+
+  .final { text-align: center; }
+  .final h2 { margin-bottom: 26px; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
+  footer a { color: var(--muted); }
+
+  @media (max-width: 860px) {
+    .features, .steps { grid-template-columns: 1fr; }
+    nav a.hide-sm { display: none; }
+    section { padding: 56px 0; }
+  }
+  @media (max-width: 520px) {
+    .wrap { padding-left: 16px; padding-right: 16px; }
+    .hero { padding-top: 32px; }
+    .stage, .shot img { border-radius: 12px; }
+    .btn { width: 100%; justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-download" viewBox="0 0 20 20"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+    <symbol id="i-github" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+    <symbol id="i-sel" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3.2 2.4"/></symbol>
+    <symbol id="i-screen" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12.5" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 20h6M12 16.5V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-window" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 9.5h18" stroke="currentColor" stroke-width="2"/><circle cx="6.3" cy="7.3" r=".9" fill="currentColor"/><circle cx="9" cy="7.3" r=".9" fill="currentColor"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M6 18 17 7M9.5 6.5H17.5V14.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
+    <symbol id="i-blur" viewBox="0 0 24 24"><path d="M12 3.5c3 4 6 7.4 6 10.5a6 6 0 0 1-12 0c0-3.1 3-6.5 6-10.5Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9.2c1.6 2 3 3.8 3 5.2a3 3 0 0 1-3 3Z" fill="currentColor"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 5 11l4 4M5.5 11H14a5 5 0 0 1 0 10h-2" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.7l1.2-1.8h5.2L15.8 6h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5Z" fill="currentColor"/><circle cx="12" cy="12.5" r="3.4" fill="#2f6bf2"/><circle cx="12" cy="12.5" r="1.8" fill="currentColor"/></symbol>
+    <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7.5 14h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="17" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="8.5" y="2.5" width="7" height="4" rx="1.3" fill="currentColor"/><path d="M8.5 12h7M8.5 16h4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5" fill="currentColor"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="2.2" fill="none"/></symbol>
+  </defs>
+</svg>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.png" alt="">Snappy</a>
+    <nav>
+      <a class="hide-sm" href="#try">Try it</a>
+      <a class="hide-sm" href="#features">Features</a>
+      <a class="hide-sm" href="#install">Install</a>
+      <a class="hide-sm" href="#faq">FAQ</a>
+      <a href="https://github.com/beqaabu/Snappy">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero wrap">
+    <h1>Screenshots in one shortcut<span class="x">.</span></h1>
+    <p class="lede">Press <kbd>⌘⇧2</kbd>, drag over what you want, click once. Snappy freezes the screen so you can move, resize and mark up your selection, then saves it and copies it to your clipboard.</p>
+    <div class="ctas">
+      <a class="btn primary" href="https://github.com/beqaabu/Snappy/releases/latest/download/Snappy.zip"><svg><use href="#i-download"/></svg>Download for macOS</a>
+      <a class="btn secondary" href="https://github.com/beqaabu/Snappy"><svg><use href="#i-github"/></svg>View on GitHub</a>
+    </div>
+    <div class="fineprint">Free and open source · macOS 14 or later · Apple Silicon and Intel</div>
+    <div class="brew"><span class="c">$</span> brew trust --tap beqaabu/tap<br><span class="c">$</span> brew install --cask beqaabu/tap/snappy-app</div>
+
+    <figure class="shot">
+      <img src="preview.png" width="1600" height="1000" alt="Snappy's overlay on a desktop: a selection marked up with an arrow, a box, text and a blurred token, with the markup bar above and the Selection, Screen and Window toolbar below">
+      <figcaption>Select, mark up, capture. The bar under your selection has everything.</figcaption>
+    </figure>
+  </div>
+
+  <div class="demo-section wrap" id="try">
+    <h2 class="try">Try it here</h2>
+    <div class="stage" id="stage" aria-label="Interactive demo of Snappy on a pretend desktop">
+      <div class="desk" id="desk">
+        <div class="menubar"><b>Notes</b><span>File</span><span>Edit</span><span>Format</span><span>View</span><span>Window</span><span class="clock">Sat Oct 10&nbsp;&nbsp;9:41</span></div>
+        <div class="mwin win-chart" id="w-chart" data-title="Weekly signups">
+          <div class="tb"><span class="dots"><i></i><i></i><i></i></span>Weekly signups</div>
+          <div class="chart"><b style="height:32%;opacity:.45"></b><b style="height:48%;opacity:.55"></b><b style="height:40%;opacity:.5"></b><b style="height:66%;opacity:.7"></b><b style="height:58%;opacity:.65"></b><b style="height:80%;opacity:.85"></b><b style="height:94%"></b></div>
+        </div>
+        <div class="mwin win-notes" id="w-notes" data-title="Launch checklist">
+          <div class="tb"><span class="dots"><i></i><i></i><i></i></span>Launch checklist</div>
+          <div class="notes">
+            <h3>Snappy launch</h3>
+            <div class="item done"><i>✓</i>Write the README</div>
+            <div class="item done"><i>✓</i>Draw the app icon</div>
+            <div class="item done"><i>✓</i>Publish the release</div>
+            <div class="item"><i></i>Build the website</div>
+            <div class="item"><i></i>Tell everyone</div>
+            <div class="label">Deploy token</div>
+            <div class="token">snp_live_9f3a7c2e41b8d06f5e2a</div>
+          </div>
+        </div>
+      </div>
+      <div class="blurs" id="blurs"></div>
+      <svg class="marks" id="marks" viewBox="0 0 1600 1000" preserveAspectRatio="none"></svg>
+      <button class="start" id="start" type="button"><svg width="22" height="22" style="width:1.1em;height:1.1em"><use href="#i-camera"/></svg>Click here, or press <kbd>⌘⇧2</kbd></button>
+      <div class="ov" id="ov" hidden></div>
+    </div>
+    <div class="demo-caption" id="caption">A pretend desktop. Start Snappy, drag a selection, then try the markup tools, Screen and Window.</div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>Everything a screenshot needs. Nothing it doesn't.</h2>
+      <p class="sub">The screenshot flow from Ubuntu, brought to the Mac: one shortcut, one screen, one click.</p>
+      <div class="features">
+        <div class="card">
+          <div class="icon"><svg><use href="#i-move"/></svg></div>
+          <h3>Drag, then adjust</h3>
+          <p>The screen freezes while you choose, so menus and tooltips stay put. Move the selection, resize it from any handle, and Snappy remembers it for next time.</p>
+        </div>
+        <div class="card">
+          <div class="icon"><svg><use href="#i-window"/></svg><svg><use href="#i-screen"/></svg></div>
+          <h3>Window or screen, one click</h3>
+          <p>Hover a window to grab just that window, even if something covers it. Or take the whole screen. Keys work too: <kbd>S</kbd> <kbd>W</kbd> <kbd>C</kbd>.</p>
+        </div>
+        <div class="card">
+          <div class="icon"><svg><use href="#i-arrow"/></svg><svg><use href="#i-box"/></svg><svg><use href="#i-blur"/></svg></div>
+          <h3>Quick markup</h3>
+          <p>Arrows, boxes, text and blur, right on the selection. Blur pixelates in the saved image, so passwords and tokens stay unreadable.</p>
+        </div>
+        <div class="card">
+          <div class="icon"><svg><use href="#i-clip"/></svg></div>
+          <h3>Saved and copied</h3>
+          <p>Every capture lands in your folder and on your clipboard. A preview waits in the corner: click to open it, or drag it straight into Slack, Mail or Finder.</p>
+        </div>
+        <div class="card">
+          <div class="icon"><svg><use href="#i-gear"/></svg></div>
+          <h3>Your way</h3>
+          <p>Pick your own shortcut, save folder and PNG or JPEG. Turn off the file, the clipboard, the preview or the sound. Launch at login.</p>
+        </div>
+        <div class="card">
+          <div class="icon"><svg><use href="#i-lock"/></svg></div>
+          <h3>Tiny and private</h3>
+          <p>A menu bar app with no account, no analytics and no network access at all. Your screenshots never leave your Mac. MIT licensed.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Up and running in a minute.</h2>
+      <p class="sub">No account, no setup wizard.</p>
+      <div class="steps">
+        <div class="step">
+          <h3>Install</h3>
+          <p>Unzip and drag <b>Snappy</b> to Applications, then open it. Or with Homebrew: <code>brew trust --tap beqaabu/tap</code> <code>brew install --cask beqaabu/tap/snappy-app</code></p>
+        </div>
+        <div class="step">
+          <h3>Allow Screen Recording</h3>
+          <p>macOS asks once. Turn on Snappy in System Settings → Privacy &amp; Security → Screen &amp; System Audio Recording, then reopen it.</p>
+        </div>
+        <div class="step">
+          <h3>Press <kbd>⌘⇧2</kbd></h3>
+          <p>Drag, adjust, click the camera. Or use the menu bar icon. Change the shortcut any time in Settings.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap faq">
+      <h2>Questions</h2>
+      <details>
+        <summary>Why does it need Screen Recording access?</summary>
+        <p>That's how macOS lets any app take a screenshot. Snappy only captures when you press the shortcut or use its menu, and it has no network access, so nothing is ever sent anywhere.</p>
+      </details>
+      <details>
+        <summary>macOS says it can't verify the developer.</summary>
+        <p>Snappy isn't notarized by Apple. Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b>. You only need to do this once.</p>
+      </details>
+      <details>
+        <summary>Why does Homebrew ask me to trust the tap?</summary>
+        <p>Homebrew 6 and later only loads apps from third-party taps you've trusted. <code>brew trust --tap beqaabu/tap</code> does that once. The cask is called <code>snappy-app</code> because <code>snappy</code> is already Homebrew's name for Google's compression library.</p>
+      </details>
+      <details>
+        <summary>Where do my screenshots go?</summary>
+        <p>To <code>~/Pictures/Screenshots</code> and your clipboard by default. Change the folder, the format, or turn either off in Settings.</p>
+      </details>
+      <details>
+        <summary>How is this different from ⌘⇧4?</summary>
+        <p>macOS captures as soon as you let go. Snappy lets you adjust the selection, mark it up and blur things before you capture, remembers the last area, and shows Selection, Screen and Window in one toolbar, like Ubuntu's screenshot tool.</p>
+      </details>
+      <details>
+        <summary>Which versions of macOS are supported?</summary>
+        <p>macOS 14 Sonoma and later, on Apple Silicon and Intel Macs.</p>
+      </details>
+      <details>
+        <summary>Is it really free?</summary>
+        <p>Yes. It's open source under the MIT license. The code is on <a href="https://github.com/beqaabu/Snappy">GitHub</a>, and issues and pull requests are welcome.</p>
+      </details>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>One shortcut. Drag. Snap.</h2>
+      <div class="ctas">
+        <a class="btn primary" href="https://github.com/beqaabu/Snappy/releases/latest/download/Snappy.zip"><svg><use href="#i-download"/></svg>Download for macOS</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Snappy by Beqa Abuladze · <a href="https://github.com/beqaabu/Snappy">GitHub</a> · <a href="https://github.com/beqaabu/Snappy/blob/main/LICENSE">MIT License</a></span>
+    <span>macOS is a trademark of Apple Inc. Snappy is not affiliated with Apple.</span>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const W = 1600, H = 1000; // demo screen units
+  const stage = document.getElementById('stage');
+  const desk = document.getElementById('desk');
+  const ov = document.getElementById('ov');
+  const marksSvg = document.getElementById('marks');
+  const blursEl = document.getElementById('blurs');
+  const startBtn = document.getElementById('start');
+  const caption = document.getElementById('caption');
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const COLORS = ['#ff3b30', '#ffcc00', '#2f6bf2'];
+
+  const st = { active: false, mode: 'sel', sel: null, tool: null, color: COLORS[0], marks: [], draft: null, drag: null, hover: null, last: null };
+
+  const pct = (v, total) => (v / total * 100) + '%';
+  const icon = id => `<svg><use href="#${id}"/></svg>`;
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+  const norm = (x1, y1, x2, y2) => ({ x: Math.min(x1, x2), y: Math.min(y1, y2), w: Math.abs(x2 - x1), h: Math.abs(y2 - y1) });
+  const inside = (r, p) => r && p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+
+  function toV(e) {
+    const r = stage.getBoundingClientRect();
+    return { x: clamp((e.clientX - r.left) / r.width * W, 0, W), y: clamp((e.clientY - r.top) / r.height * H, 0, H) };
+  }
+
+  function windows() {
+    const r = stage.getBoundingClientRect();
+    // Front-to-back, like the real app.
+    return ['w-notes', 'w-chart'].map(id => {
+      const el = document.getElementById(id), b = el.getBoundingClientRect();
+      return { id, title: el.dataset.title, x: (b.left - r.left) / r.width * W, y: (b.top - r.top) / r.height * H, w: b.width / r.width * W, h: b.height / r.height * H };
+    });
+  }
+
+  function say(text) { caption.textContent = text; }
+
+  // ---- Start / stop ----
+  function start() {
+    if (st.active) return;
+    dismissThumb();
+    Object.assign(st, { active: true, mode: 'sel', tool: null, marks: [], draft: null, drag: null, hover: null, sel: st.last && { ...st.last } });
+    stage.classList.add('active');
+    startBtn.hidden = true;
+    ov.hidden = false;
+    say(st.sel ? 'Your last selection is back. Drag inside to move it, or use the handles.' : 'Drag to select an area. Esc cancels.');
+    render();
+  }
+
+  function stop() {
+    st.active = false;
+    st.marks = []; st.draft = null; st.tool = null;
+    stage.classList.remove('active');
+    ov.hidden = true;
+    startBtn.hidden = false;
+    drawMarks();
+  }
+
+  // ---- Rendering ----
+  function render() {
+    if (!st.active) return;
+    const parts = [];
+    if (st.mode === 'win') {
+      if (st.hover) parts.push(box('hole win', st.hover));
+      else parts.push('<div class="dim"></div><div class="hint">Click a window to capture it</div>');
+    } else if (st.sel && st.sel.w > 2 && st.sel.h > 2) {
+      const s = st.sel;
+      parts.push(box('hole sel', s));
+      for (const [h, x, y] of [['tl', 0, 0], ['t', .5, 0], ['tr', 1, 0], ['r', 1, .5], ['br', 1, 1], ['b', .5, 1], ['bl', 0, 1], ['l', 0, .5]]) {
+        parts.push(`<div class="handle" data-h="${h}" style="left:${pct(s.x + s.w * x, W)};top:${pct(s.y + s.h * y, H)}"></div>`);
+      }
+      parts.push(`<div class="sizelabel" style="left:${pct(s.x, W)};top:${pct(s.y, H)}">${Math.round(s.w)} × ${Math.round(s.h)}</div>`);
+      parts.push(markBar(s));
+    } else {
+      parts.push('<div class="dim"></div><div class="hint">Drag to select an area</div>');
+    }
+    parts.push(`<div class="bar toolbar" data-bar>
+      <button type="button" data-act="mode-sel" aria-pressed="${st.mode === 'sel'}">${icon('i-sel')}Selection</button>
+      <button type="button" data-act="screen">${icon('i-screen')}Screen</button>
+      <button type="button" data-act="mode-win" aria-pressed="${st.mode === 'win'}">${icon('i-window')}Window</button>
+      <button type="button" class="x" data-act="cancel" aria-label="Cancel">${icon('i-x')}</button>
+    </div>`);
+    ov.innerHTML = parts.join('');
+    ov.classList.toggle('win-mode', st.mode === 'win');
+    ov.style.cursor = st.mode === 'sel' && st.tool && inside(st.sel, st.lastPointer || {}) ? 'crosshair' : '';
+    drawMarks();
+  }
+
+  function box(cls, r) {
+    return `<div class="${cls}" style="left:${pct(r.x, W)};top:${pct(r.y, H)};width:${pct(r.w, W)};height:${pct(r.h, H)}"></div>`;
+  }
+
+  function markBar(s) {
+    const bw = 470, bh = 64, gap = 16, toolbarTop = H - 34 - 94;
+    let y = s.y + s.h + gap;
+    if (y + bh > toolbarTop) y = s.y - gap - bh;
+    if (y < 44) y = s.y + gap;
+    const x = clamp(s.x + s.w / 2 - bw / 2, 10, W - bw - 10);
+    const tool = (t, i, label) => `<button type="button" data-act="tool-${t}" aria-pressed="${st.tool === t}" aria-label="${label}" title="${label}">${icon(i)}</button>`;
+    return `<div class="bar markbar" data-bar style="left:${pct(x, W)};top:${pct(y, H)}">
+      ${tool('arrow', 'i-arrow', 'Arrow (A)')}${tool('box', 'i-box', 'Box (R)')}${tool('blur', 'i-blur', 'Blur (B)')}
+      <span class="sep"></span>
+      ${COLORS.map(c => `<button type="button" class="swatch" data-act="color-${c}" aria-pressed="${st.color === c}" aria-label="Colour"><i style="background:${c}"></i></button>`).join('')}
+      <span class="sep"></span>
+      <button type="button" data-act="undo" aria-label="Undo (⌘Z)" title="Undo (⌘Z)" ${st.marks.length ? '' : 'disabled'}>${icon('i-undo')}</button>
+      <button type="button" class="cap" data-act="capture" aria-label="Capture (Return)" title="Capture (Return)">${icon('i-camera')}</button>
+    </div>`;
+  }
+
+  function drawMarks(target = marksSvg, blurTarget = blursEl, marks = [...st.marks, ...(st.draft ? [st.draft] : [])]) {
+    target.innerHTML = '';
+    blurTarget.innerHTML = '';
+    for (const m of marks) {
+      if (m.type === 'blur') {
+        const d = document.createElement('div');
+        Object.assign(d.style, { left: pct(m.x, W), top: pct(m.y, H), width: pct(m.w, W), height: pct(m.h, H) });
+        blurTarget.appendChild(d);
+      } else if (m.type === 'box') {
+        const r = document.createElementNS(SVGNS, 'rect');
+        for (const [k, v] of Object.entries({ x: m.x, y: m.y, width: m.w, height: m.h, rx: 4, fill: 'none', stroke: m.color, 'stroke-width': 6 })) r.setAttribute(k, v);
+        target.appendChild(r);
+      } else if (m.type === 'arrow') {
+        const dx = m.x2 - m.x1, dy = m.y2 - m.y1, len = Math.hypot(dx, dy);
+        if (len < 2) continue;
+        const head = Math.min(30, len * 0.6), ux = dx / len, uy = dy / len;
+        const bx = m.x2 - ux * head, by = m.y2 - uy * head, half = head * 0.55;
+        const l = document.createElementNS(SVGNS, 'line');
+        for (const [k, v] of Object.entries({ x1: m.x1, y1: m.y1, x2: bx, y2: by, stroke: m.color, 'stroke-width': 6, 'stroke-linecap': 'round' })) l.setAttribute(k, v);
+        const p = document.createElementNS(SVGNS, 'polygon');
+        p.setAttribute('points', `${m.x2},${m.y2} ${bx - uy * half},${by + ux * half} ${bx + uy * half},${by - ux * half}`);
+        p.setAttribute('fill', m.color);
+        p.setAttribute('stroke', m.color);
+        p.setAttribute('stroke-linejoin', 'round');
+        p.setAttribute('stroke-width', 3);
+        target.append(l, p);
+      }
+    }
+  }
+
+  // ---- Pointer ----
+  ov.addEventListener('pointerdown', e => {
+    if (e.target.closest('[data-bar]')) return; // buttons handle themselves
+    const p = toV(e);
+    if (st.mode === 'win') {
+      const w = windows().find(w => inside(w, p));
+      if (w) capture(w, `the "${w.title}" window`, [], w.id);
+      return;
+    }
+    ov.setPointerCapture(e.pointerId);
+    const h = e.target.dataset && e.target.dataset.h;
+    const s = st.sel;
+    if (h && s) {
+      st.drag = { kind: 'resize', l: h.includes('l'), r: h.includes('r'), t: h.includes('t'), b: h.includes('b') };
+    } else if (st.tool && inside(s, p)) {
+      st.drag = { kind: 'draw', start: p };
+    } else if (inside(s, p)) {
+      if (e.detail === 2) { captureSelection(); return; }
+      st.drag = { kind: 'move', dx: p.x - s.x, dy: p.y - s.y };
+    } else {
+      st.drag = { kind: 'create', start: p };
+      st.sel = { x: p.x, y: p.y, w: 0, h: 0 };
+    }
+    render();
+  });
+
+  ov.addEventListener('pointermove', e => {
+    const p = toV(e);
+    st.lastPointer = p;
+    if (st.mode === 'win') {
+      const onBar = e.target.closest('[data-bar]');
+      const w = onBar ? null : windows().find(w => inside(w, p)) || null;
+      if ((w && w.title) !== (st.hover && st.hover.title)) { st.hover = w; render(); }
+      return;
+    }
+    const d = st.drag;
+    if (!d) return;
+    const s = st.sel;
+    if (d.kind === 'create') {
+      st.sel = norm(d.start.x, d.start.y, p.x, p.y);
+    } else if (d.kind === 'move') {
+      s.x = clamp(p.x - d.dx, 0, W - s.w);
+      s.y = clamp(p.y - d.dy, 0, H - s.h);
+    } else if (d.kind === 'resize') {
+      let x1 = s.x, y1 = s.y, x2 = s.x + s.w, y2 = s.y + s.h;
+      if (d.l) x1 = p.x; if (d.r) x2 = p.x; if (d.t) y1 = p.y; if (d.b) y2 = p.y;
+      if (x1 > x2) { [d.l, d.r] = [d.r, d.l]; }
+      if (y1 > y2) { [d.t, d.b] = [d.b, d.t]; }
+      st.sel = norm(x1, y1, x2, y2);
+    } else if (d.kind === 'draw') {
+      const q = { x: clamp(p.x, s.x, s.x + s.w), y: clamp(p.y, s.y, s.y + s.h) };
+      const a = d.start;
+      st.draft = st.tool === 'arrow' ? { type: 'arrow', x1: a.x, y1: a.y, x2: q.x, y2: q.y, color: st.color }
+               : { type: st.tool, ...norm(a.x, a.y, q.x, q.y), color: st.color };
+      drawMarks();
+      return;
+    }
+    render();
+  });
+
+  ov.addEventListener('pointerup', () => {
+    const d = st.drag;
+    st.drag = null;
+    if (d && d.kind === 'draw' && st.draft) {
+      const m = st.draft;
+      const big = m.type === 'arrow' ? Math.hypot(m.x2 - m.x1, m.y2 - m.y1) > 10 : m.w > 6 && m.h > 6;
+      if (big) st.marks.push(m);
+      st.draft = null;
+    }
+    if (st.sel && (st.sel.w < 3 || st.sel.h < 3)) st.sel = null;
+    if (d && d.kind === 'create' && st.sel) say('Nice. Move it, resize it, mark it up, then click the camera (or press Return).');
+    render();
+  });
+
+  ov.addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    act(b.dataset.act);
+  });
+
+  function act(a) {
+    if (a === 'cancel') { stop(); say('Cancelled. In the app, Esc or a right-click does the same.'); return; }
+    if (a === 'screen') { capture({ x: 0, y: 0, w: W, h: H }, 'the whole screen'); return; }
+    if (a === 'mode-sel') { st.mode = 'sel'; st.hover = null; say('Selection mode. Drag to select.'); }
+    if (a === 'mode-win') { st.mode = 'win'; st.tool = null; say('Window mode. Hover a window, click to capture it.'); }
+    if (a.startsWith('tool-')) {
+      const t = a.slice(5);
+      st.tool = st.tool === t ? null : t;
+      say(st.tool ? { arrow: 'Drag inside the selection to draw an arrow.', box: 'Drag inside the selection to draw a box.', blur: 'Drag over the deploy token to hide it.' }[st.tool] : 'Back to moving the selection.');
+    }
+    if (a.startsWith('color-')) st.color = a.slice(6);
+    if (a === 'undo') st.marks.pop();
+    if (a === 'capture') { captureSelection(); return; }
+    render();
+  }
+
+  // ---- Keyboard ----
+  addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'Digit2') {
+      const r = stage.getBoundingClientRect();
+      if (r.bottom > 0 && r.top < innerHeight) { e.preventDefault(); start(); }
+      return;
+    }
+    if (!st.active) return;
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') { e.preventDefault(); act('undo'); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const map = { Escape: 'cancel', Enter: 'capture', KeyS: 'mode-sel', KeyC: 'screen', KeyW: 'mode-win', KeyA: 'tool-arrow', KeyR: 'tool-box', KeyB: 'tool-blur' };
+    const a = map[e.code];
+    if (!a) return;
+    if (a.startsWith('tool-') && !(st.mode === 'sel' && st.sel)) return;
+    if (a === 'capture' && st.mode === 'win') return;
+    e.preventDefault();
+    act(a);
+  });
+
+  startBtn.addEventListener('click', start);
+
+  // ---- Capture ----
+  function captureSelection() {
+    const s = st.sel;
+    if (!s || s.w < 3 || s.h < 3) return;
+    st.last = { ...s };
+    capture(s, 'your selection', st.marks);
+  }
+
+  function capture(region, what, marks = [], onlyWindow = null) {
+    const flash = document.createElement('div');
+    flash.className = 'flash';
+    stage.appendChild(flash);
+    setTimeout(() => flash.remove(), 400);
+    stop();
+    showThumb(region, marks, onlyWindow);
+    const n = new Date(), two = v => String(v).padStart(2, '0');
+    const name = `Screenshot ${n.getFullYear()}-${two(n.getMonth() + 1)}-${two(n.getDate())} at ${two(n.getHours())}.${two(n.getMinutes())}.${two(n.getSeconds())}.png`;
+    say(`Captured ${what}. In the app it's saved as "${name}" and copied to your clipboard.`);
+  }
+
+  let thumbTimer;
+  function dismissThumb() {
+    clearTimeout(thumbTimer);
+    stage.querySelectorAll('.thumb').forEach(t => { t.classList.add('out'); setTimeout(() => t.remove(), 260); });
+  }
+
+  // The preview is a scaled live copy of the pretend desktop (plus markup), clipped to the captured region.
+  function showThumb(region, marks, onlyWindow) {
+    dismissThumb();
+    const sr = stage.getBoundingClientRect();
+    const k = sr.width / W; // px per unit
+    const maxW = sr.width * 0.24, maxH = sr.height * 0.26;
+    const rw = region.w * k, rh = region.h * k;
+    const scale = Math.min(maxW / rw, maxH / rh);
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    thumb.title = 'In the app: click to open, drag into another app';
+    thumb.style.width = rw * scale + 'px';
+    thumb.style.height = rh * scale + 'px';
+    const clip = document.createElement('div');
+    clip.className = 'clip';
+    Object.assign(clip.style, { width: rw + 'px', height: rh + 'px', transform: `scale(${scale})` });
+    const clone = document.createElement('div');
+    clone.className = 'clone';
+    Object.assign(clone.style, { width: sr.width + 'px', height: sr.height + 'px', left: -region.x * k + 'px', top: -region.y * k + 'px' });
+    const deskCopy = desk.cloneNode(true);
+    deskCopy.removeAttribute('id');
+    if (onlyWindow) {
+      // Like the app: a window capture is just that window, even if something overlaps it.
+      deskCopy.style.background = 'transparent';
+      deskCopy.querySelectorAll('.menubar, .mwin').forEach(el => { if (el.id !== onlyWindow) el.remove(); });
+      thumb.style.background = 'transparent';
+    }
+    deskCopy.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    const blurCopy = blursEl.cloneNode(false); blurCopy.removeAttribute('id');
+    const svgCopy = marksSvg.cloneNode(false); svgCopy.removeAttribute('id');
+    drawMarks(svgCopy, blurCopy, marks);
+    clone.append(deskCopy, blurCopy, svgCopy);
+    clip.appendChild(clone);
+    thumb.appendChild(clip);
+    stage.appendChild(thumb);
+
+    const arm = () => { clearTimeout(thumbTimer); thumbTimer = setTimeout(dismissThumb, 5000); };
+    thumb.addEventListener('pointerenter', () => clearTimeout(thumbTimer));
+    thumb.addEventListener('pointerleave', arm);
+    thumb.addEventListener('click', () => { dismissThumb(); say('In the app, that opens the screenshot. You can also drag the preview into Slack, Mail or Finder.'); });
+    arm();
+  }
+})();
+</script>
+</body>
+</html>
