@@ -118,6 +118,24 @@
     max-width: 100%; overflow-x: auto;
   }
   .brew .c { color: var(--muted); }
+  .brew-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 8px;
+    font: 600 12px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--muted); letter-spacing: 0.02em;
+  }
+  .brew .ln { white-space: normal; }
+  .brew .ln span { white-space: nowrap; } /* wrap only between words, never inside "--cask" or a path */
+  .copy {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px;
+    font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); cursor: pointer;
+  }
+  .copy:hover { border-color: var(--muted); }
+  .copy svg { width: 14px; height: 14px; }
+  .copy .ok { display: none; }
+  .copy.done { color: #1f9d48; }
+  .copy.done .ok { display: block; }
+  .copy.done .icon { display: none; }
+  .step .brew { display: block; margin-top: 12px; font-size: 13px; }
 
   .shot { margin: 44px 0 0; }
   .shot img {
@@ -333,6 +351,8 @@
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M6 18 17 7M9.5 6.5H17.5V14.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-box" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
     <symbol id="i-blur" viewBox="0 0 24 24"><path d="M12 3.5c3 4 6 7.4 6 10.5a6 6 0 0 1-12 0c0-3.1 3-6.5 6-10.5Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9.2c1.6 2 3 3.8 3 5.2a3 3 0 0 1-3 3Z" fill="currentColor"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H7A2.5 2.5 0 0 0 4.5 6v8A2.5 2.5 0 0 0 7 16.5h1.5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8.5 9h7M12 9v7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
     <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 5 11l4 4M5.5 11H14a5 5 0 0 1 0 10h-2" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.7l1.2-1.8h5.2L15.8 6h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5Z" fill="currentColor"/><circle cx="12" cy="12.5" r="3.4" fill="#2f6bf2"/><circle cx="12" cy="12.5" r="1.8" fill="currentColor"/></symbol>
@@ -366,7 +386,7 @@
       <a class="btn secondary" href="https://github.com/beqaabu/Snappy"><svg><use href="#i-github"/></svg>View on GitHub</a>
     </div>
     <div class="fineprint">Free and open source · macOS 14 or later · Apple Silicon and Intel</div>
-    <div class="brew"><span class="c">$</span> brew trust --tap beqaabu/tap<br><span class="c">$</span> brew install --cask beqaabu/tap/snappy-app</div>
+    <div class="brew" data-copy="brew trust --tap beqaabu/tap &amp;&amp; brew install --cask beqaabu/tap/snappy-app"><div class="brew-head"><span>Homebrew</span><button class="copy" type="button" title="Copies both commands as one line"><svg class="icon"><use href="#i-copy"/></svg><svg class="ok"><use href="#i-check"/></svg><span>Copy</span></button></div><div class="ln"><span class="c">$</span> <span>brew</span> <span>trust</span> <span>--tap</span> <span>beqaabu/tap</span></div><div class="ln"><span class="c">$</span> <span>brew</span> <span>install</span> <span>--cask</span> <span>beqaabu/tap/snappy-app</span></div></div>
 
     <figure class="shot">
       <img src="preview.png" width="1600" height="1000" alt="Snappy's overlay on a desktop: a selection marked up with an arrow, a box, text and a blurred token, with the markup bar above and the Selection, Screen and Window toolbar below">
@@ -451,7 +471,8 @@
       <div class="steps">
         <div class="step">
           <h3>Install</h3>
-          <p>Unzip and drag <b>Snappy</b> to Applications, then open it. Or with Homebrew: <code>brew trust --tap beqaabu/tap</code> <code>brew install --cask beqaabu/tap/snappy-app</code></p>
+          <p>Unzip and drag <b>Snappy</b> to Applications, then open it. Or with Homebrew:</p>
+          <div class="brew" data-copy="brew trust --tap beqaabu/tap &amp;&amp; brew install --cask beqaabu/tap/snappy-app"><div class="brew-head"><span>Homebrew</span><button class="copy" type="button" title="Copies both commands as one line"><svg class="icon"><use href="#i-copy"/></svg><svg class="ok"><use href="#i-check"/></svg><span>Copy</span></button></div><div class="ln"><span class="c">$</span> <span>brew</span> <span>trust</span> <span>--tap</span> <span>beqaabu/tap</span></div><div class="ln"><span class="c">$</span> <span>brew</span> <span>install</span> <span>--cask</span> <span>beqaabu/tap/snappy-app</span></div></div>
         </div>
         <div class="step">
           <h3>Allow Screen Recording</h3>
@@ -516,6 +537,32 @@
   </div>
 </footer>
 
+<script>
+// Copy buttons on the Homebrew commands.
+document.querySelectorAll('[data-copy]').forEach(box => {
+  const button = box.querySelector('.copy');
+  const label = button.querySelector('span');
+  let timer;
+  button.addEventListener('click', async () => {
+    const text = box.dataset.copy;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Older browsers, or no clipboard permission: copy through a temporary text field.
+      const field = Object.assign(document.createElement('textarea'), { value: text });
+      field.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(field);
+      field.select();
+      document.execCommand('copy');
+      field.remove();
+    }
+    button.classList.add('done');
+    label.textContent = 'Copied';
+    clearTimeout(timer);
+    timer = setTimeout(() => { button.classList.remove('done'); label.textContent = 'Copy'; }, 1600);
+  });
+});
+</script>
 <script>
 (() => {
   const W = 1600, H = 1000; // demo screen units
