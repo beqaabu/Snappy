@@ -144,6 +144,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let shot = try? await Self.grabWindow(id) { self?.save(shot, on: screen) } else { NSSound.beep() }
             }
         }
+        view.onCopyText = { [weak self, weak view] shot in
+            guard let self, let view else { return }
+            UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey)
+            self.closeOverlay()
+            TextRecognition.recognize(shot) { text in
+                guard !text.isEmpty else {
+                    Sounds.noText()
+                    ToastPanel.show("No text found", detail: "Try a larger or sharper selection.", symbol: "text.viewfinder", on: screen)
+                    return
+                }
+                let pb = NSPasteboard.general
+                pb.clearContents()
+                pb.setString(text, forType: .string)
+                Sounds.scan()
+                let lines = text.split(separator: "\n").count
+                ToastPanel.show("Copied \(lines) line\(lines == 1 ? "" : "s") of text", detail: text, symbol: "doc.on.clipboard", on: screen)
+            }
+        }
         view.onCapture = { [weak self, weak view] shot in
             guard let self, let view else { return }
             UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey)
@@ -188,10 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pb.setData(png, forType: .png)
         }
 
-        if Prefs.playSound {
-            let shutter = URL(fileURLWithPath: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Shutter.aif")
-            (NSSound(contentsOf: shutter, byReference: true) ?? NSSound(named: "Grab"))?.play()
-        }
+        Sounds.shutter()
 
         if Prefs.showPreview, FileManager.default.fileExists(atPath: url.path) {
             PreviewPanel.show(image: image, file: url, on: screen)

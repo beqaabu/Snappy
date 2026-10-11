@@ -144,3 +144,71 @@ private final class PreviewView: NSView, NSDraggingSource {
         if operation != [] { onDismiss() }
     }
 }
+
+// MARK: - Small notice in the same corner, e.g. after copying text
+
+final class ToastPanel: NSPanel {
+    private static var current: ToastPanel?
+
+    static func show(_ title: String, detail: String?, symbol: String, on screen: NSScreen) {
+        PreviewPanel.dismissCurrent()
+        current?.orderOut(nil)
+        let panel = ToastPanel(title: title, detail: detail, symbol: symbol, screen: screen)
+        current = panel
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { $0.duration = 0.15; panel.animator().alphaValue = 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak panel] in
+            guard let panel, current === panel else { return }
+            current = nil
+            NSAnimationContext.runAnimationGroup({ $0.duration = 0.2; panel.animator().alphaValue = 0 }) { panel.orderOut(nil) }
+        }
+    }
+
+    private init(title: String, detail: String?, symbol: String, screen: NSScreen) {
+        let titleField = NSTextField(labelWithString: title)
+        titleField.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleField.textColor = .white
+        // At most two short lines, so long copies don't make a huge notice.
+        let lines = (detail ?? "").split(separator: "\n", omittingEmptySubsequences: true)
+        var shown = lines.prefix(2).map { $0.count > 48 ? $0.prefix(47) + "…" : String($0) }.joined(separator: "\n")
+        if lines.count > 2 { shown += " …" }
+        let detailField = NSTextField(labelWithString: shown)
+        detailField.font = .systemFont(ofSize: 12)
+        detailField.textColor = NSColor.white.withAlphaComponent(0.75)
+        detailField.isHidden = detail == nil
+        let icon = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil)!
+            .withSymbolConfiguration(.init(pointSize: 18, weight: .medium).applying(.init(paletteColors: [.white])))!)
+
+        let text = NSStackView(views: [titleField, detailField])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 2
+        let row = NSStackView(views: [icon, text])
+        row.spacing = 10
+        row.edgeInsets = NSEdgeInsets(top: 12, left: 14, bottom: 12, right: 16)
+
+        let size = row.fittingSize
+        let margin: CGFloat = 20
+        let frame = CGRect(x: screen.visibleFrame.maxX - size.width - margin, y: screen.visibleFrame.minY + margin,
+                           width: size.width, height: size.height)
+        super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        level = .floating
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+
+        let background = NSVisualEffectView(frame: CGRect(origin: .zero, size: size))
+        background.material = .hudWindow
+        background.appearance = NSAppearance(named: .darkAqua)
+        background.state = .active
+        background.wantsLayer = true
+        background.layer?.cornerRadius = 12
+        row.frame = background.bounds
+        background.addSubview(row)
+        contentView = background
+    }
+
+    override var canBecomeKey: Bool { false }
+}
