@@ -12,13 +12,13 @@ A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area
 - Quick markup on a selection: arrows, boxes, text and blur (for hiding passwords and personal info)
 - One-click full-screen and single-window captures
 - Remembers your last selection, so repeat shots of the same area take one click
-- Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard
+- Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard (both configurable)
 - Shows a preview in the corner: click to open it, drag it into any app
 - A few small Swift files, no dependencies
 
 ## Usage
 
-Press **⌘⇧2** (or click the menu bar icon → Take Screenshot). A toolbar appears at the bottom of the screen:
+Press **⌘⇧2** (the default; change it in Settings), or click the menu bar icon → Take Screenshot. A toolbar appears at the bottom of the screen:
 
 | Button | Key | Action |
 |---|---|---|
@@ -81,17 +81,19 @@ The first build creates a self-signed code signing certificate in `signing/` (gi
 On first launch macOS asks for Screen Recording permission. Enable Snappy in **System Settings → Privacy & Security → Screen & System Audio Recording**, then quit and reopen Snappy.
 
 
-### Launch at login
+## Settings
 
-Click the menu bar icon and enable **Launch at Login**.
+Click the menu bar icon → **Settings…** to change:
 
-## Customizing
+- **Screenshot shortcut:** click it and press a new combination. It needs ⌘, ⌃ or ⌥, or can be a function key on its own.
+- **After capturing:** save to a file, copy to the clipboard (at least one stays on), show the preview, play the shutter sound
+- **Files:** the save folder (default `~/Pictures/Screenshots`) and PNG or JPEG
+- **Launch at login**
 
-The code is in [`Sources/`](Sources):
+## Customizing the code
 
-- **Shortcut:** the `HotKey(keyCode:modifiers:)` call in `applicationDidFinishLaunching` ([`main.swift`](Sources/main.swift))
-- **Save folder:** `saveFolder` in `AppDelegate` ([`main.swift`](Sources/main.swift))
-- **Sound:** `save(_:on:)` ([`main.swift`](Sources/main.swift))
+The code is in [`Sources/`](Sources). Beyond what Settings covers:
+
 - **Preview duration and size:** `visibleFor` and `maxSize` in [`Preview.swift`](Sources/Preview.swift)
 - **Markup colours, line width and font:** [`Markup.swift`](Sources/Markup.swift)
 
