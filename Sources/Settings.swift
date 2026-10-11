@@ -161,6 +161,7 @@ struct SettingsView: View {
     @AppStorage(Prefs.Key.showPreview) private var showPreview = true
     @AppStorage(Prefs.Key.playSound) private var playSound = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @AppStorage(UpdateCheck.Key.automatic) private var checkAutomatically = false
 
     var body: some View {
         Form {
@@ -214,6 +215,19 @@ struct SettingsView: View {
                         } catch { NSSound.beep() }
                         launchAtLogin = SMAppService.mainApp.status == .enabled
                     }))
+            }
+
+            Section {
+                LabeledContent("Version \(UpdateCheck.currentVersion)") {
+                    Button("Check Now") { UpdateCheck.run(userInitiated: true) }
+                }
+                Toggle(isOn: $checkAutomatically) {
+                    Text("Check for updates automatically")
+                    Text("Once a day. Snappy only goes online to check for updates.")
+                }
+                .onChange(of: checkAutomatically) { UpdateCheck.scheduleAutomaticChecks() }
+            } header: {
+                Text("Updates")
             }
         }
         .formStyle(.grouped)

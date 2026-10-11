@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         settings.shortcutFailed = !hotKey.register(Prefs.shortcut)
         updateMenu()
+        UpdateCheck.scheduleAutomaticChecks()
 
         // Trigger the Screen Recording permission prompt early on first launch.
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
