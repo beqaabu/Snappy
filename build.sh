@@ -21,6 +21,8 @@ APP=build/Snappy.app
 rm -rf build
 mkdir -p "$APP/Contents/MacOS"
 cp Info.plist "$APP/Contents/"
+mkdir -p "$APP/Contents/Resources"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 for arch in arm64 x86_64; do
   swiftc -O -swift-version 5 -target $arch-apple-macos$MIN_MACOS -o build/Snappy-$arch Sources/*.swift
 done
