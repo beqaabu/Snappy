@@ -94,6 +94,9 @@ Click the menu bar icon → **Settings…** to change:
 - **After capturing:** save to a file, copy to the clipboard (at least one stays on), show the preview, play the shutter sound
 - **Files:** the save folder (default `~/Pictures/Screenshots`) and PNG or JPEG
 - **Launch at login**
+- **Updates:** Check Now, or turn on a daily check (off by default). Homebrew installs are told to `brew upgrade --cask snappy-app` instead of downloading.
+
+Snappy only connects to the internet to check for updates, and only when you ask it to (Check Now, or the daily check you turned on).
 
 ## Customizing the code
 
