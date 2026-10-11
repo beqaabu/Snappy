@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # Ad-hoc signed: a build check doesn't need the release certificate (and PRs from forks can't read secrets).
       - name: Build universal app
