@@ -6,6 +6,8 @@
 	<string>Snappy</string>
 	<key>CFBundleExecutable</key>
 	<string>Snappy</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.beqa.Snappy</string>
 	<key>CFBundleName</key>

@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="128" alt="Snappy icon">
+
 # Snappy
 
 A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area, a window or the whole screen, and click once to capture.
@@ -93,7 +95,7 @@ The code is in [`Sources/`](Sources):
 - **Preview duration and size:** `visibleFor` and `maxSize` in [`Preview.swift`](Sources/Preview.swift)
 - **Markup colours, line width and font:** [`Markup.swift`](Sources/Markup.swift)
 
-The README image is rendered from the real overlay over a mock desktop: `./tools/render-preview.sh`.
+The README image is rendered from the real overlay over a mock desktop: `./tools/render-preview.sh`. The app icon is drawn in code: `./tools/make-icon.sh`.
 
 ## Releasing
 
