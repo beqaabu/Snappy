@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         Prefs.registerDefaults()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Snappy")
+        statusItem.button?.image = MenuBarIcon.make()
 
         let menu = NSMenu()
         takeItem = menu.addItem(withTitle: "", action: #selector(start), keyEquivalent: "")
