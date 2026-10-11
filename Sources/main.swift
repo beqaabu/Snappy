@@ -1,45 +1,58 @@
 // Snappy: a tiny Ubuntu-style screenshot tool for macOS.
-// Press Cmd+Shift+2 (or use the menu bar icon), drag a region, move/resize it,
-// then click the camera button (or press Return) to save + copy to clipboard.
+// Press the shortcut (Cmd+Shift+2 by default, changeable in Settings) or use the menu bar icon,
+// drag a region, move/resize it, then click the camera button (or press Return) to capture.
 
 import AppKit
 import Carbon.HIToolbox
 import ScreenCaptureKit
-import ServiceManagement
 
 // MARK: - App
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private var hotKey: HotKey?
+    private var hotKey: HotKey!
     private var overlay: OverlayWindow?
-    private var loginItem: NSMenuItem!
-
-    private var saveFolder: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Pictures/Screenshots")
-    }
+    private var takeItem: NSMenuItem!
+    private let settings = SettingsModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Prefs.registerDefaults()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Snappy")
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "Take Screenshot  (⌘⇧2)", action: #selector(start), keyEquivalent: "")
+        takeItem = menu.addItem(withTitle: "", action: #selector(start), keyEquivalent: "")
         menu.addItem(withTitle: "Open Screenshots Folder", action: #selector(openFolder), keyEquivalent: "")
         menu.addItem(.separator())
-        loginItem = menu.addItem(withTitle: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
-        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Snappy", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
 
-        hotKey = HotKey(keyCode: UInt32(kVK_ANSI_2), modifiers: UInt32(cmdKey | shiftKey)) { [weak self] in self?.start() }
+        hotKey = HotKey { [weak self] in self?.start() }
+        settings.applyShortcut = { [weak self] shortcut in
+            guard let self else { return false }
+            self.updateMenu()
+            return self.hotKey.register(shortcut)
+        }
+        settings.pauseShortcut = { [weak self] paused in
+            guard let self else { return }
+            if paused { self.hotKey.unregister() } else { self.hotKey.register(Prefs.shortcut) }
+        }
+        settings.shortcutFailed = !hotKey.register(Prefs.shortcut)
+        updateMenu()
 
         // Trigger the Screen Recording permission prompt early on first launch.
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
     }
 
     private let lastSelectionKey = "lastSelection"
+
+    private func updateMenu() {
+        takeItem.title = "Take Screenshot  (\(Prefs.shortcut.display))"
+    }
+
+    @objc func openSettings() { SettingsWindow.show(model: settings) }
 
     @objc func start() {
         guard overlay == nil else { return }
@@ -153,21 +166,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func save(_ image: CGImage, on screen: NSScreen) {
         let rep = NSBitmapImageRep(cgImage: image)
         guard let png = rep.representation(using: .png, properties: [:]) else { return }
+        let format = Prefs.format
+        let fileData = format == .png ? png : rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9])
+        guard let fileData else { return }
 
-        try? FileManager.default.createDirectory(at: saveFolder, withIntermediateDirectories: true)
+        // The preview needs a file to open and drag, so clipboard-only captures go to a temporary folder.
+        let folder = Prefs.saveToFile ? Prefs.saveFolder : FileManager.default.temporaryDirectory.appendingPathComponent("Snappy")
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let url = saveFolder.appendingPathComponent("Screenshot \(f.string(from: Date())).png")
-        do { try png.write(to: url) } catch { NSSound.beep(); return }
+        let url = folder.appendingPathComponent("Screenshot \(f.string(from: Date())).\(format.fileExtension)")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try fileData.write(to: url)
+        } catch {
+            if Prefs.saveToFile { saveFailedAlert(folder: folder, error: error); return }
+        }
 
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setData(png, forType: .png)
+        if Prefs.copyToClipboard {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setData(png, forType: .png)
+        }
 
-        let shutter = URL(fileURLWithPath: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Shutter.aif")
-        (NSSound(contentsOf: shutter, byReference: true) ?? NSSound(named: "Grab"))?.play()
+        if Prefs.playSound {
+            let shutter = URL(fileURLWithPath: "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Shutter.aif")
+            (NSSound(contentsOf: shutter, byReference: true) ?? NSSound(named: "Grab"))?.play()
+        }
 
-        PreviewPanel.show(image: image, file: url, on: screen)
+        if Prefs.showPreview, FileManager.default.fileExists(atPath: url.path) {
+            PreviewPanel.show(image: image, file: url, on: screen)
+        }
+    }
+
+    private func saveFailedAlert(folder: URL, error: Error) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Snappy couldn't save the screenshot"
+        alert.informativeText = "Saving to \((folder.path as NSString).abbreviatingWithTildeInPath) failed: \(error.localizedDescription)\n\nChoose a different folder in Settings."
+        alert.addButton(withTitle: "Open Settings")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn { openSettings() }
     }
 
     private func permissionAlert(_ error: Error) {
@@ -183,16 +221,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openFolder() {
-        try? FileManager.default.createDirectory(at: saveFolder, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(saveFolder)
-    }
-
-    @objc func toggleLogin() {
-        do {
-            if SMAppService.mainApp.status == .enabled { try SMAppService.mainApp.unregister() }
-            else { try SMAppService.mainApp.register() }
-        } catch { NSSound.beep() }
-        loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        let folder = Prefs.saveFolder
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(folder)
     }
 }
 
