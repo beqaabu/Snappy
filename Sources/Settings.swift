@@ -180,7 +180,7 @@ struct SettingsView: View {
                 Toggle("Save to a file", isOn: $saveToFile).disabled(saveToFile && !copyToClipboard)
                 Toggle("Copy to the clipboard", isOn: $copyToClipboard).disabled(copyToClipboard && !saveToFile)
                 Toggle("Show a preview in the corner", isOn: $showPreview)
-                Toggle("Play the shutter sound", isOn: $playSound)
+                Toggle("Play sounds", isOn: $playSound)
             }
 
             Section("Files") {
