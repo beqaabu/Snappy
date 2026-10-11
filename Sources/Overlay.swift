@@ -17,6 +17,7 @@ final class OverlayView: NSView {
     let image: CGImage
     let windows: [WindowTarget] // front-to-back
     var onCapture: (CGImage) -> Void = { _ in }
+    var onCopyText: (CGImage) -> Void = { _ in }
     var onCaptureScreen: () -> Void = {}
     var onCaptureWindow: (CGWindowID) -> Void = { _ in }
     var onCancel: () -> Void = {}
@@ -32,7 +33,7 @@ final class OverlayView: NSView {
     private let handleSize: CGFloat = 10
 
     // Markup
-    private enum BarItem { case tool(MarkupTool), color(Int), undo, capture }
+    private enum BarItem { case tool(MarkupTool), color(Int), undo, copyText, capture }
     private var tool: MarkupTool?
     private var colorIndex = 0
     private var color: NSColor { Markup.colors[colorIndex] }
@@ -90,7 +91,8 @@ final class OverlayView: NSView {
         x += 8
         for i in Markup.colors.indices { add(.color(i), 24) }
         x += 8
-        add(.undo, 32, gap: 6)
+        add(.undo, 32, gap: 2)
+        add(.copyText, 32, gap: 6)
         add(.capture, 36, gap: 0)
         let w = x + 6
 
@@ -215,6 +217,8 @@ final class OverlayView: NSView {
                 ring.stroke()
             case .undo:
                 drawSymbol("arrow.uturn.backward", in: r, size: 13, color: .white.withAlphaComponent(annotations.isEmpty ? 0.3 : 1))
+            case .copyText:
+                drawSymbol("text.viewfinder", in: r, size: 14)
             case .capture:
                 NSColor.systemBlue.setFill()
                 NSBezierPath(ovalIn: r).fill()
@@ -375,7 +379,11 @@ final class OverlayView: NSView {
 
     override func keyDown(with event: NSEvent) {
         if event.modifierFlags.contains(.command) {
-            if Int(event.keyCode) == kVK_ANSI_Z { use(.undo) } else { super.keyDown(with: event) }
+            switch Int(event.keyCode) {
+            case kVK_ANSI_Z: use(.undo)
+            case kVK_ANSI_C where mode == .selection && hasSelection: use(.copyText)
+            default: super.keyDown(with: event)
+            }
             return
         }
         if mode == .selection, hasSelection, let t = MarkupTool(keyCode: Int(event.keyCode)) { use(.tool(t)); return }
@@ -394,13 +402,26 @@ final class OverlayView: NSView {
     private func capture() {
         endText(keep: true)
         guard hasSelection else { return }
+        if let shot = selectedImage() { onCapture(shot) }
+    }
+
+    /// The selection, cut from the marked-up screen at full pixel resolution.
+    private func selectedImage() -> CGImage? {
         let scale = CGFloat(image.width) / bounds.width
         // CGImage origin is top-left; view origin is bottom-left.
         let px = CGRect(x: selection.minX * scale,
                         y: (bounds.height - selection.maxY) * scale,
                         width: selection.width * scale,
                         height: selection.height * scale).integral
-        if let shot = composited()?.cropping(to: px) { onCapture(shot) }
+        return composited()?.cropping(to: px)
+    }
+
+    /// Recognizes text in the selection instead of saving an image. Uses the marked-up image,
+    /// so anything blurred stays unreadable.
+    private func copyText() {
+        endText(keep: true)
+        guard hasSelection else { return }
+        if let shot = selectedImage() { onCopyText(shot) }
     }
 
     /// The frozen screen with the markup drawn on top, at full pixel resolution.
@@ -432,6 +453,9 @@ final class OverlayView: NSView {
             textField?.textColor = color
         case .undo:
             if textField != nil { endText(keep: false) } else if !annotations.isEmpty { annotations.removeLast() }
+        case .copyText:
+            copyText()
+            return
         case .capture:
             capture()
             return

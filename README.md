@@ -12,6 +12,7 @@ A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area
 - Freezes the screen while you choose, so menus and tooltips stay put
 - Drag to select, then move or resize the selection before capturing
 - Quick markup on a selection: arrows, boxes, text and blur (for hiding passwords and personal info)
+- Copy the text in a selection instead of an image, recognized on your Mac
 - One-click full-screen and single-window captures
 - Remembers your last selection, so repeat shots of the same area take one click
 - Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard (both configurable)
@@ -43,6 +44,10 @@ A bar next to the selection has markup tools. Pick one, then draw inside the sel
 | Blur | `B` | Drag over anything you want to hide; it's pixelated in the saved image |
 
 Pick a colour from the swatches, and undo with the ↩ button or `⌘Z`. Click the active tool again to go back to moving the selection.
+
+### Copy text
+
+Click the text button next to the camera (or press `⌘C`) to copy the text inside the selection instead of taking a picture: error messages, text in images, videos or apps that won't let you select it. Recognition runs on your Mac with Apple's Vision framework; nothing is uploaded. Anything you've blurred is left out.
 
 The capture covers the display the mouse pointer is on.
 

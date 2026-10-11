@@ -217,7 +217,7 @@
 
   .bar {
     position: absolute; display: flex; align-items: center; gap: calc(var(--u) * 6);
-    padding: calc(var(--u) * 8); border-radius: calc(var(--u) * 16); background: rgba(31, 31, 33, 0.94);
+    padding: calc(var(--u) * 8); border-radius: calc(var(--u) * 16); background: rgba(31, 31, 33, 0.97);
     cursor: default; z-index: 3;
   }
   .bar button {
@@ -333,6 +333,7 @@
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M6 18 17 7M9.5 6.5H17.5V14.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-box" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2.2"/></symbol>
     <symbol id="i-blur" viewBox="0 0 24 24"><path d="M12 3.5c3 4 6 7.4 6 10.5a6 6 0 0 1-12 0c0-3.1 3-6.5 6-10.5Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9.2c1.6 2 3 3.8 3 5.2a3 3 0 0 1-3 3Z" fill="currentColor"/></symbol>
+    <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8.5 9h7M12 9v7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></symbol>
     <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7 5 11l4 4M5.5 11H14a5 5 0 0 1 0 10h-2" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.7l1.2-1.8h5.2L15.8 6h1.7A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5Z" fill="currentColor"/><circle cx="12" cy="12.5" r="3.4" fill="#2f6bf2"/><circle cx="12" cy="12.5" r="1.8" fill="currentColor"/></symbol>
     <symbol id="i-keys" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 10h.01M9 10h.01M12 10h.01M15 10h.01M18 10h.01M7.5 14h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
@@ -425,14 +426,14 @@
           <p>Arrows, boxes, text and blur, right on the selection. Blur pixelates in the saved image, so passwords and tokens stay unreadable.</p>
         </div>
         <div class="card">
-          <div class="icon"><svg><use href="#i-clip"/></svg></div>
-          <h3>Saved and copied</h3>
-          <p>Every capture lands in your folder and on your clipboard. A preview waits in the corner: click to open it, or drag it straight into Slack, Mail or Finder.</p>
+          <div class="icon"><svg><use href="#i-text"/></svg></div>
+          <h3>Copy the text, not the picture</h3>
+          <p>Press <kbd>⌘C</kbd> on a selection to copy the words in it: error messages, text in images and videos, apps that won't let you select. Recognized on your Mac, never uploaded.</p>
         </div>
         <div class="card">
-          <div class="icon"><svg><use href="#i-gear"/></svg></div>
-          <h3>Your way</h3>
-          <p>Pick your own shortcut, save folder and PNG or JPEG. Turn off the file, the clipboard, the preview or the sound. Launch at login.</p>
+          <div class="icon"><svg><use href="#i-clip"/></svg></div>
+          <h3>Saved and copied</h3>
+          <p>Every capture lands in your folder and on your clipboard. A preview waits in the corner: click to open it, or drag it into Slack, Mail or Finder. Shortcut, folder, format and all of this are yours to change in Settings.</p>
         </div>
         <div class="card">
           <div class="icon"><svg><use href="#i-lock"/></svg></div>
@@ -608,7 +609,7 @@
   }
 
   function markBar(s) {
-    const bw = 470, bh = 64, gap = 16, toolbarTop = H - 34 - 94;
+    const bw = 524, bh = 64, gap = 16, toolbarTop = H - 34 - 94;
     let y = s.y + s.h + gap;
     if (y + bh > toolbarTop) y = s.y - gap - bh;
     if (y < 44) y = s.y + gap;
@@ -620,6 +621,7 @@
       ${COLORS.map(c => `<button type="button" class="swatch" data-act="color-${c}" aria-pressed="${st.color === c}" aria-label="Colour"><i style="background:${c}"></i></button>`).join('')}
       <span class="sep"></span>
       <button type="button" data-act="undo" aria-label="Undo (⌘Z)" title="Undo (⌘Z)" ${st.marks.length ? '' : 'disabled'}>${icon('i-undo')}</button>
+      <button type="button" data-act="copytext" aria-label="Copy text (⌘C)" title="Copy text (⌘C)">${icon('i-text')}</button>
       <button type="button" class="cap" data-act="capture" aria-label="Capture (Return)" title="Capture (Return)">${icon('i-camera')}</button>
     </div>`;
   }
@@ -747,6 +749,7 @@
     if (a.startsWith('color-')) st.color = a.slice(6);
     if (a === 'undo') st.marks.pop();
     if (a === 'capture') { captureSelection(); return; }
+    if (a === 'copytext') { copyText(); return; }
     render();
   }
 
@@ -759,6 +762,7 @@
     }
     if (!st.active) return;
     if ((e.metaKey || e.ctrlKey) && e.code === 'KeyZ') { e.preventDefault(); act('undo'); return; }
+    if ((e.metaKey || e.ctrlKey) && e.code === 'KeyC' && st.mode === 'sel' && st.sel) { e.preventDefault(); act('copytext'); return; }
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const map = { Escape: 'cancel', Enter: 'capture', KeyS: 'mode-sel', KeyC: 'screen', KeyW: 'mode-win', KeyA: 'tool-arrow', KeyR: 'tool-box', KeyB: 'tool-blur' };
     const a = map[e.code];
@@ -770,6 +774,37 @@
   });
 
   startBtn.addEventListener('click', start);
+
+  // ---- Copy text ----
+  // The app recognizes text in the pixels; here the pretend desktop's text is known, so collect the
+  // pieces inside the selection, skipping anything under a blur, in reading order.
+  function copyText() {
+    const s = st.sel;
+    if (!s || s.w < 3 || s.h < 3) return;
+    st.last = { ...s };
+    const r = stage.getBoundingClientRect();
+    const toUnits = b => ({ x: (b.left - r.left) / r.width * W, y: (b.top - r.top) / r.height * H, w: b.width / r.width * W, h: b.height / r.height * H });
+    const covered = (a, b) => a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
+    const blurs = st.marks.filter(m => m.type === 'blur');
+    const windowsFront = windows();
+    const pieces = [...desk.querySelectorAll('.menubar b, .menubar span, .tb, .notes h3, .notes .item, .notes .label, .notes .token')]
+      .map(el => ({ el, box: toUnits(el.getBoundingClientRect()), text: el.textContent.replace('✓', '').trim() }))
+      .filter(p => p.text && covered(p.box, s) && !blurs.some(b => inside(b, { x: p.box.x + p.box.w / 2, y: p.box.y + p.box.h / 2 })))
+      // Hidden behind the window in front? (The chart's title bar sits under the notes window.)
+      .filter(p => { const win = p.el.closest('.mwin'); if (!win) return true; const front = windowsFront.find(w => inside(w, { x: p.box.x + 2, y: p.box.y + 2 })); return !front || front.id === win.id; })
+      .sort((a, b) => a.box.y - b.box.y || a.box.x - b.box.x);
+    const rows = [];
+    for (const p of pieces) {
+      const row = rows[rows.length - 1];
+      if (row && Math.abs(row[0].box.y - p.box.y) < 10) row.push(p); else rows.push([p]);
+    }
+    const text = rows.map(row => row.map(p => p.text).join('  ')).join('\n');
+    stop();
+    if (!text) { say('No text found in that selection.'); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+    const lines = text.split('\n');
+    say(`Copied ${lines.length} line${lines.length === 1 ? '' : 's'} of text: "${lines.slice(0, 2).join(' / ')}${lines.length > 2 ? ' / …' : ''}". In the app it's recognized from the pixels, on your Mac.`);
+  }
 
   // ---- Capture ----
   function captureSelection() {
