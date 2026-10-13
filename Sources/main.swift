@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = MenuBarIcon.make()
 
         let menu = NSMenu()
-        takeItem = menu.addItem(withTitle: "", action: #selector(start), keyEquivalent: "")
+        takeItem = menu.addItem(withTitle: "", action: #selector(start as () -> Void), keyEquivalent: "")
         menu.addItem(withTitle: "Open Screenshots Folder", action: #selector(openFolder), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
@@ -55,11 +55,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openSettings() { SettingsWindow.show(model: settings) }
 
-    @objc func start() {
+    @objc func start() { start(on: nil) }
+
+    /// Freezes `screen` (or the one under the mouse) and opens the overlay on it.
+    private func start(on chosen: NSScreen?) {
         guard overlay == nil else { return }
         PreviewPanel.dismissCurrent()
         let mouse = NSEvent.mouseLocation
-        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main,
+        guard let screen = chosen ?? NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main,
               let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
         else { return }
 
@@ -105,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                   b.width > 40, b.height > 40, b.intersects(display)
             else { return nil }
             let rect = CGRect(x: b.minX - display.minX, y: display.height - (b.maxY - display.minY), width: b.width, height: b.height)
-            return WindowTarget(id: id, rect: rect)
+            return WindowTarget(id: id, rect: rect, app: w[kCGWindowOwnerName as String] as? String)
         }
     }
 
@@ -137,19 +140,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         view.onCancel = { [weak self] in self?.closeOverlay() }
         view.onCaptureScreen = { [weak self] in
             self?.closeOverlay()
-            self?.save(image, on: screen)
+            self?.save(image, on: screen, app: nil)
         }
         view.onCaptureWindow = { [weak self] id in
             self?.closeOverlay()
+            let app = windows.first { $0.id == id }?.app
             Task { @MainActor in
-                if let shot = try? await Self.grabWindow(id) { self?.save(shot, on: screen) } else { NSSound.beep() }
+                if let shot = try? await Self.grabWindow(id) { self?.save(shot, on: screen, app: app) } else { NSSound.beep() }
             }
+        }
+        view.onTimer = { [weak self, weak view] in
+            guard let self, let view else { return }
+            if view.selection.width >= 2 { UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey) }
+            self.closeOverlay()
+            NSApp.hide(nil) // give focus back so you can open a menu or hover something
+            CountdownPanel.run(seconds: 3, on: screen) { [weak self] in self?.start(on: screen) }
         }
         view.onCopyText = { [weak self, weak view] shot in
             guard let self, let view else { return }
             UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey)
             self.closeOverlay()
-            TextRecognition.recognize(shot) { text in
+            TextRecognition.recognize(shot) { result in
+                if !result.codes.isEmpty {
+                    // A QR code (or other barcode) wins: that's almost always what you're after.
+                    let pb = NSPasteboard.general
+                    pb.clearContents()
+                    pb.setString(result.codes.joined(separator: "\n"), forType: .string)
+                    Sounds.scan()
+                    let isLink = result.codes.count == 1 && URL(string: result.codes[0])?.scheme?.hasPrefix("http") == true
+                    ToastPanel.show(isLink ? "Copied link from QR code" : "Copied QR code", detail: result.codes.joined(separator: "\n"), symbol: "qrcode", on: screen)
+                    return
+                }
+                let text = result.text
                 guard !text.isEmpty else {
                     Sounds.noText()
                     ToastPanel.show("No text found", detail: "Try a larger or sharper selection.", symbol: "text.viewfinder", on: screen)
@@ -167,7 +189,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, let view else { return }
             UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey)
             self.closeOverlay()
-            self.save(shot, on: screen)
+            // Name the file after the app whose window is under the middle of the selection.
+            let center = CGPoint(x: view.selection.midX, y: view.selection.midY)
+            self.save(shot, on: screen, app: windows.first { $0.rect.contains(center) }?.app)
         }
         win.contentView = view
         overlay = win
@@ -182,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlay = nil
     }
 
-    private func save(_ image: CGImage, on screen: NSScreen) {
+    private func save(_ image: CGImage, on screen: NSScreen, app: String?) {
         let rep = NSBitmapImageRep(cgImage: image)
         guard let png = rep.representation(using: .png, properties: [:]) else { return }
         let format = Prefs.format
@@ -191,9 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // The preview needs a file to open and drag, so clipboard-only captures go to a temporary folder.
         let folder = Prefs.saveToFile ? Prefs.saveFolder : FileManager.default.temporaryDirectory.appendingPathComponent("Snappy")
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let url = folder.appendingPathComponent("Screenshot \(f.string(from: Date())).\(format.fileExtension)")
+        let url = folder.appendingPathComponent(Naming.fileName(date: Date(), app: app, fileExtension: format.fileExtension))
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try fileData.write(to: url)

@@ -15,6 +15,9 @@ jobs:
       - name: Build universal app
         run: ADHOC=1 ./build.sh
 
+      - name: Run tests
+        run: ./tools/test.sh
+
       - name: Check architectures and deployment target
         run: |
           lipo -info build/Snappy.app/Contents/MacOS/Snappy

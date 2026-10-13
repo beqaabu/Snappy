@@ -212,3 +212,53 @@ final class ToastPanel: NSPanel {
 
     override var canBecomeKey: Bool { false }
 }
+
+// MARK: - Countdown for delayed captures
+
+final class CountdownPanel: NSPanel {
+    private let label = NSTextField(labelWithString: "")
+
+    /// Shows 3, 2, 1 in the middle of `screen`, then hides and calls `done`.
+    static func run(seconds: Int, on screen: NSScreen, done: @escaping () -> Void) {
+        let panel = CountdownPanel(screen: screen)
+        panel.orderFrontRegardless()
+        func tick(_ remaining: Int) {
+            guard remaining > 0 else {
+                panel.orderOut(nil)
+                // Give the window server a moment to remove the panel before the screen is captured.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: done)
+                return
+            }
+            panel.label.stringValue = "\(remaining)"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { tick(remaining - 1) }
+        }
+        tick(seconds)
+    }
+
+    private init(screen: NSScreen) {
+        let size: CGFloat = 120
+        let frame = CGRect(x: screen.frame.midX - size / 2, y: screen.frame.midY - size / 2, width: size, height: size)
+        super.init(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        level = .screenSaver
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        ignoresMouseEvents = true
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+
+        let background = NSVisualEffectView(frame: CGRect(x: 0, y: 0, width: size, height: size))
+        background.material = .hudWindow
+        background.appearance = NSAppearance(named: .darkAqua)
+        background.state = .active
+        background.wantsLayer = true
+        background.layer?.cornerRadius = 28
+        label.font = .monospacedDigitSystemFont(ofSize: 64, weight: .semibold)
+        label.textColor = .white
+        label.alignment = .center
+        label.frame = CGRect(x: 0, y: (size - 78) / 2, width: size, height: 78)
+        background.addSubview(label)
+        contentView = background
+    }
+
+    override var canBecomeKey: Bool { false }
+}

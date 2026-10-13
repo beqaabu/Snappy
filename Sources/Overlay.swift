@@ -11,6 +11,7 @@ final class OverlayWindow: NSWindow {
 struct WindowTarget {
     let id: CGWindowID
     let rect: CGRect // in overlay view coordinates
+    let app: String?
 }
 
 final class OverlayView: NSView {
@@ -20,10 +21,11 @@ final class OverlayView: NSView {
     var onCopyText: (CGImage) -> Void = { _ in }
     var onCaptureScreen: () -> Void = {}
     var onCaptureWindow: (CGWindowID) -> Void = { _ in }
+    var onTimer: () -> Void = {}
     var onCancel: () -> Void = {}
 
     private enum Mode { case selection, window }
-    private enum Tool { case selection, screen, window, close }
+    private enum Tool { case selection, screen, window, timer, close }
     private var mode: Mode = .selection
     private var hoveredWindow: WindowTarget?
 
@@ -61,7 +63,7 @@ final class OverlayView: NSView {
     private func window(at p: CGPoint) -> WindowTarget? { windows.first { $0.rect.contains(p) } }
 
     private var toolbarRect: CGRect {
-        let w: CGFloat = 364, h: CGFloat = 56 // 3 buttons × 96 + close 44 + gaps
+        let w: CGFloat = 464, h: CGFloat = 56 // 4 buttons × 96 + close 44 + gaps
         return CGRect(x: bounds.midX - w / 2, y: 32, width: w, height: h)
     }
 
@@ -74,6 +76,7 @@ final class OverlayView: NSView {
             (.selection, item(96), "rectangle.dashed", "Selection"),
             (.screen, item(96), "display", "Screen"),
             (.window, item(96), "macwindow", "Window"),
+            (.timer, item(96), "timer", "3s Timer"),
             (.close, CGRect(x: bar.maxX - 50, y: bar.minY + 6, width: 44, height: bar.height - 12), "xmark", ""),
         ]
     }
@@ -273,6 +276,7 @@ final class OverlayView: NSView {
         case .selection: setMode(.selection)
         case .window: setMode(.window)
         case .screen: onCaptureScreen()
+        case .timer: endText(keep: true); onTimer()
         case .close: onCancel()
         }
     }
@@ -392,6 +396,7 @@ final class OverlayView: NSView {
         case kVK_ANSI_S: use(.selection)
         case kVK_ANSI_C: use(.screen)
         case kVK_ANSI_W: use(.window)
+        case kVK_ANSI_D: use(.timer)
         case kVK_Return, kVK_ANSI_KeypadEnter, kVK_Space:
             if mode == .window { if let w = hoveredWindow { onCaptureWindow(w.id) } }
             else if hasSelection { capture() }
