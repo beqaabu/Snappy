@@ -46,7 +46,7 @@ A bar next to the selection has markup tools. Pick one, then draw inside the sel
 | Steps | `N` | Click to drop numbered badges: 1, 2, 3… |
 | Blur | `B` | Drag over anything you want to hide; it's pixelated in the saved image |
 
-Pick a colour from the swatches, and the dot button cycles the size (small, medium, large) for lines, text and badges. Click the active tool again to go back to moving the selection.
+Hover any button to see what it does; while a tool is active, a caption under the bar says how to use it. Pick a colour from the swatches, and the dot button cycles the size (small, medium, large) for lines, text and badges. Click the active tool again to go back to moving the selection.
 
 **Editing marks:** click any mark to select it, then drag to move it, press `Delete` to remove it, or click a colour or the size dot to change it. Double-click text to edit it. `Esc` deselects. Undo (↩ or `⌘Z`) steps back through everything, including moves and deletions.
 

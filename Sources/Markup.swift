@@ -19,6 +19,31 @@ enum MarkupTool: CaseIterable {
         }
     }
 
+    var name: String {
+        switch self {
+        case .arrow: "Arrow (A)"
+        case .box: "Box (R)"
+        case .pen: "Pen (P)"
+        case .highlight: "Highlighter (H)"
+        case .text: "Text (T)"
+        case .step: "Steps (N)"
+        case .blur: "Blur (B)"
+        }
+    }
+
+    /// What to do next, shown while the tool is active.
+    var hint: String {
+        switch self {
+        case .arrow: "Drag inside the selection to draw an arrow"
+        case .box: "Drag inside the selection to draw a box"
+        case .pen: "Draw freehand inside the selection"
+        case .highlight: "Drag over text to highlight it"
+        case .text: "Click where the text should go, then type"
+        case .step: "Click to add numbered steps: 1, 2, 3…"
+        case .blur: "Drag over anything you want to hide"
+        }
+    }
+
     init?(keyCode: Int) {
         switch keyCode {
         case kVK_ANSI_A: self = .arrow

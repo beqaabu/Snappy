@@ -47,6 +47,7 @@ final class OverlayView: NSView {
     private var draft: Annotation?
     private var textField: NSTextField?
     private var textFieldSize: MarkupSize = .medium
+    private var hoverLabel: (text: String, rect: CGRect)?
     private var editingExistingText = false // the undo step was already recorded when editing began
     private lazy var pixelatedImage = Markup.pixelated(image, pointScale: CGFloat(image.width) / bounds.width)
 
@@ -145,7 +146,7 @@ final class OverlayView: NSView {
         ctx.fillPath(using: .evenOdd)
         ctx.restoreGState()
 
-        defer { drawToolbar() }
+        defer { drawToolbar(); drawHoverLabel() }
 
         if mode == .window {
             if let r = hoveredWindow?.rect {
@@ -218,6 +219,7 @@ final class OverlayView: NSView {
 
     private func drawSelectionBar() {
         let bar = selectionBar()
+        if let tool { drawToolHint(tool.hint, near: bar.rect) }
         NSColor(white: 0.12, alpha: 0.92).setFill()
         NSBezierPath(roundedRect: bar.rect, xRadius: 12, yRadius: 12).fill()
         for (item, r) in bar.items {
@@ -250,6 +252,20 @@ final class OverlayView: NSView {
                 drawSymbol("camera.fill", in: r, size: 14)
             }
         }
+    }
+
+    /// A small caption on the far side of the markup bar from the selection, saying what the active tool does.
+    private func drawToolHint(_ text: String, near bar: CGRect) {
+        let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white]
+        let size = (text as NSString).size(withAttributes: attrs)
+        let barBelowSelection = bar.maxY <= selection.minY
+        var pill = CGRect(x: bar.midX - size.width / 2 - 10, y: barBelowSelection ? bar.minY - size.height - 14 : bar.maxY + 6,
+                          width: size.width + 20, height: size.height + 8)
+        pill.origin.x = min(max(pill.minX, 8), bounds.maxX - pill.width - 8)
+        if pill.minY < 4 || pill.maxY > bounds.maxY - 4 { return }
+        NSColor.black.withAlphaComponent(0.72).setFill()
+        NSBezierPath(roundedRect: pill, xRadius: pill.height / 2, yRadius: pill.height / 2).fill()
+        (text as NSString).draw(at: CGPoint(x: pill.minX + 10, y: pill.minY + 4), withAttributes: attrs)
     }
 
     private func drawHint(_ text: String) {
@@ -305,8 +321,13 @@ final class OverlayView: NSView {
     // MARK: Mouse
 
     override func mouseMoved(with event: NSEvent) {
-        guard mode == .window else { return }
         let p = convert(event.locationInWindow, from: nil)
+        let label = buttonLabels().first { $0.rect.contains(p) }
+        if label?.text != hoverLabel?.text || label?.rect != hoverLabel?.rect {
+            hoverLabel = label
+            needsDisplay = true
+        }
+        guard mode == .window else { return }
         let hovered = toolbarRect.contains(p) ? nil : window(at: p)
         if hovered?.id != hoveredWindow?.id {
             hoveredWindow = hovered
@@ -316,6 +337,7 @@ final class OverlayView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let p = convert(event.locationInWindow, from: nil)
+        hoverLabel = nil
         endText(keep: true)
         if let (tool, _, _, _) = toolbarItems().first(where: { $0.1.contains(p) }) { use(tool); return }
         if toolbarRect.contains(p) { return }
@@ -433,6 +455,41 @@ final class OverlayView: NSView {
         addCursorRect(selection, cursor: tool == nil ? .openHand : tool == .text ? .iBeam : .crosshair)
         for (rect, _, _, _, _) in handleRects() { addCursorRect(rect.insetBy(dx: -4, dy: -4), cursor: .pointingHand) }
         addCursorRect(selectionBar().rect, cursor: .arrow)
+    }
+
+    /// What each button does, shown in a label as soon as you hover it.
+    private func buttonLabels() -> [(text: String, rect: CGRect)] {
+        let keys = ["Selection": "S", "Screen": "C", "Window": "W", "3s Timer": "D"]
+        var labels = toolbarItems().map { item -> (text: String, rect: CGRect) in
+            let label = item.3
+            return (label.isEmpty ? "Cancel (Esc)" : "\(label) (\(keys[label] ?? ""))", item.1)
+        }
+        guard mode == .selection, hasSelection else { return labels }
+        for (item, rect) in selectionBar().items {
+            let text: String
+            switch item {
+            case .tool(let t): text = t.name
+            case .size: text = "Size: \(["small", "medium", "large"][size.rawValue])"
+            case .color: text = "Colour"
+            case .undo: text = "Undo (⌘Z)"
+            case .copyText: text = "Copy text (⌘C)"
+            case .capture: text = "Capture (Return)"
+            }
+            labels.append((text, rect))
+        }
+        return labels
+    }
+
+    private func drawHoverLabel() {
+        guard let (text, rect) = hoverLabel else { return }
+        let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.white]
+        let size = (text as NSString).size(withAttributes: attrs)
+        var pill = CGRect(x: rect.midX - size.width / 2 - 8, y: rect.maxY + 8, width: size.width + 16, height: size.height + 8)
+        if pill.maxY > bounds.maxY - 4 { pill.origin.y = rect.minY - pill.height - 8 } // no room above: show below
+        pill.origin.x = min(max(pill.minX, 4), bounds.maxX - pill.width - 4)
+        NSColor(white: 0.05, alpha: 0.9).setFill()
+        NSBezierPath(roundedRect: pill, xRadius: 6, yRadius: 6).fill()
+        (text as NSString).draw(at: CGPoint(x: pill.minX + 8, y: pill.minY + 4), withAttributes: attrs)
     }
 
     // MARK: Keyboard
