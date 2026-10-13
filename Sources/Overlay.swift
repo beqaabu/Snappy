@@ -8,6 +8,14 @@ final class OverlayWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 }
 
+/// Converts a rect in screen points (bottom-left origin, as in the overlay) into the matching pixel
+/// rect of a screenshot of that screen (top-left origin, `imageWidth / viewSize.width` pixels per point).
+func pixelRect(for rect: CGRect, viewSize: CGSize, imageWidth: Int) -> CGRect {
+    let scale = CGFloat(imageWidth) / viewSize.width
+    return CGRect(x: rect.minX * scale, y: (viewSize.height - rect.maxY) * scale,
+                  width: rect.width * scale, height: rect.height * scale).integral
+}
+
 struct WindowTarget {
     let id: CGWindowID
     let rect: CGRect // in overlay view coordinates
@@ -412,13 +420,7 @@ final class OverlayView: NSView {
 
     /// The selection, cut from the marked-up screen at full pixel resolution.
     private func selectedImage() -> CGImage? {
-        let scale = CGFloat(image.width) / bounds.width
-        // CGImage origin is top-left; view origin is bottom-left.
-        let px = CGRect(x: selection.minX * scale,
-                        y: (bounds.height - selection.maxY) * scale,
-                        width: selection.width * scale,
-                        height: selection.height * scale).integral
-        return composited()?.cropping(to: px)
+        composited()?.cropping(to: pixelRect(for: selection, viewSize: bounds.size, imageWidth: image.width))
     }
 
     /// Recognizes text in the selection instead of saving an image. Uses the marked-up image,

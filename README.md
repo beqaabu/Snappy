@@ -28,7 +28,7 @@ Press **⌘⇧2** (the default; change it in Settings), or click the menu bar ic
 | Selection | `S` | Drag a box. Drag inside it to move, drag the handles to resize. |
 | Screen | `C` | Capture the whole screen immediately. |
 | Window | `W` | Hover a window to highlight it, click to capture it. |
-| 3s Timer | `D` | Steps aside for 3 seconds so you can open a menu or hover something, then freezes the screen again with your last selection |
+| 3s Timer | `D` | Counts down 3 seconds (open a menu or hover something meanwhile), then captures your selection, or the whole screen if there's none |
 | ✕ | `Esc` | Cancel (right-click also cancels). |
 
 In Selection mode, click the blue camera button, press `Return`/`Space`, or double-click the selection to capture.

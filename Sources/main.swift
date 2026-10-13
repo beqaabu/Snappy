@@ -151,10 +151,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         view.onTimer = { [weak self, weak view] in
             guard let self, let view else { return }
-            if view.selection.width >= 2 { UserDefaults.standard.set(NSStringFromRect(view.selection), forKey: self.lastSelectionKey) }
+            let selection = view.selection.width >= 2 && view.selection.height >= 2 ? view.selection : nil
+            if let selection { UserDefaults.standard.set(NSStringFromRect(selection), forKey: self.lastSelectionKey) }
             self.closeOverlay()
-            NSApp.hide(nil) // give focus back so you can open a menu or hover something
-            CountdownPanel.run(seconds: 3, on: screen) { [weak self] in self?.start(on: screen) }
+            // Hand focus back (without hiding Snappy, which would hide the countdown too) so you can open a menu.
+            NSApp.deactivate()
+            CountdownPanel.run(seconds: 3, on: screen) { [weak self] in self?.captureAfterTimer(on: screen, selection: selection) }
         }
         view.onCopyText = { [weak self, weak view] shot in
             guard let self, let view else { return }
@@ -199,6 +201,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         win.makeKeyAndOrderFront(nil)
         win.makeFirstResponder(view)
+    }
+
+    /// The timer's capture: a fresh shot of the screen, cut to the selection (or all of it if there was none),
+    /// saved like any other capture.
+    private func captureAfterTimer(on screen: NSScreen, selection: CGRect?) {
+        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return }
+        let windows = Self.windowTargets(on: displayID)
+        Task { @MainActor in
+            do {
+                let image = try await Self.grab(displayID: displayID, screen: screen)
+                guard let selection else { return self.save(image, on: screen, app: nil) }
+                let rect = pixelRect(for: selection, viewSize: screen.frame.size, imageWidth: image.width)
+                guard let shot = image.cropping(to: rect) else { return NSSound.beep() }
+                let center = CGPoint(x: selection.midX, y: selection.midY)
+                self.save(shot, on: screen, app: windows.first { $0.rect.contains(center) }?.app)
+            } catch {
+                self.permissionAlert(error)
+            }
+        }
     }
 
     private func closeOverlay() {

@@ -49,5 +49,14 @@ check(TextRecognition.rows([piece(0.5, 0.6, "1.2.0"), piece(0.1, 0.61, "Version"
 check(TextRecognition.rows([piece(0.1, 0.2, "last"), piece(0.6, 0.9, "first")]) == ["first", "last"], "input order doesn't matter")
 check(TextRecognition.rows([]) == [], "no text, no rows")
 
+print("pixelRect")
+let screenSize = CGSize(width: 1000, height: 600)
+check(pixelRect(for: CGRect(x: 100, y: 50, width: 200, height: 100), viewSize: screenSize, imageWidth: 2000)
+      == CGRect(x: 200, y: 900, width: 400, height: 200), "2x: scales, and flips y to a top-left origin")
+check(pixelRect(for: CGRect(x: 0, y: 500, width: 1000, height: 100), viewSize: screenSize, imageWidth: 1000)
+      == CGRect(x: 0, y: 0, width: 1000, height: 100), "a strip along the top of the screen is the top rows of the image")
+check(pixelRect(for: CGRect(origin: .zero, size: screenSize), viewSize: screenSize, imageWidth: 2000)
+      == CGRect(x: 0, y: 0, width: 2000, height: 1200), "the whole screen is the whole image")
+
 print(failures == 0 ? "\nAll tests passed." : "\n\(failures) test(s) failed.")
 exit(failures == 0 ? 0 : 1)
