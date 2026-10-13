@@ -28,18 +28,26 @@ final class OverlayView: NSView {
     private var hoveredWindow: WindowTarget?
 
     private(set) var selection: CGRect = .zero
-    private enum Drag { case none, create(start: CGPoint), move(offset: CGPoint), resize(left: Bool, right: Bool, bottom: Bool, top: Bool), draw(start: CGPoint) }
+    private enum Drag {
+        case none, create(start: CGPoint), move(offset: CGPoint), resize(left: Bool, right: Bool, bottom: Bool, top: Bool)
+        case draw(start: CGPoint), moveMark(index: Int, last: CGPoint, moved: Bool)
+    }
     private var drag: Drag = .none
     private let handleSize: CGFloat = 10
 
     // Markup
-    private enum BarItem { case tool(MarkupTool), color(Int), undo, copyText, capture }
+    private enum BarItem { case tool(MarkupTool), size, color(Int), undo, copyText, capture }
     private var tool: MarkupTool?
     private var colorIndex = 0
     private var color: NSColor { Markup.colors[colorIndex] }
+    private var size: MarkupSize = .medium
     private var annotations: [Annotation] = []
+    private var history: [[Annotation]] = [] // snapshots for undo
+    private var selectedMark: Int?
     private var draft: Annotation?
     private var textField: NSTextField?
+    private var textFieldSize: MarkupSize = .medium
+    private var editingExistingText = false // the undo step was already recorded when editing began
     private lazy var pixelatedImage = Markup.pixelated(image, pointScale: CGFloat(image.width) / bounds.width)
 
     init(frame: CGRect, image: CGImage, windows: [WindowTarget], selection: CGRect? = nil) {
@@ -89,6 +97,8 @@ final class OverlayView: NSView {
         }
         for t in MarkupTool.allCases { add(.tool(t), 32) }
         x += 8
+        add(.size, 32)
+        x += 6
         for i in Markup.colors.indices { add(.color(i), 24) }
         x += 8
         add(.undo, 32, gap: 2)
@@ -172,9 +182,11 @@ final class OverlayView: NSView {
         let label = "\(Int(selection.width * scale)) × \(Int(selection.height * scale))"
         let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium), .foregroundColor: NSColor.white]
         let size = (label as NSString).size(withAttributes: attrs)
-        var labelOrigin = CGPoint(x: selection.minX, y: selection.maxY + 6)
-        if labelOrigin.y + size.height + 4 > bounds.maxY { labelOrigin.y = selection.maxY - size.height - 10 }
-        let bg = CGRect(x: labelOrigin.x, y: labelOrigin.y, width: size.width + 12, height: size.height + 4)
+        var bg = CGRect(x: selection.minX, y: selection.maxY + 6, width: size.width + 12, height: size.height + 4)
+        // Off the top of the screen, or under the markup bar? Tuck it inside the selection's top-left corner.
+        if bg.maxY > bounds.maxY || bg.insetBy(dx: -4, dy: -4).intersects(selectionBar().rect) {
+            bg.origin = CGPoint(x: selection.minX + 6, y: selection.maxY - bg.height - 6)
+        }
         NSColor.black.withAlphaComponent(0.7).setFill()
         NSBezierPath(roundedRect: bg, xRadius: 4, yRadius: 4).fill()
         (label as NSString).draw(at: CGPoint(x: bg.minX + 6, y: bg.minY + 2), withAttributes: attrs)
@@ -187,6 +199,14 @@ final class OverlayView: NSView {
         NSBezierPath(rect: selection).addClip()
         for a in annotations { a.draw(pixelated: pixelatedImage, viewBounds: bounds) }
         draft?.draw(pixelated: pixelatedImage, viewBounds: bounds)
+        if let i = selectedMark, annotations.indices.contains(i) {
+            // Marching-ants outline around the selected mark: white under black dashes reads on any background.
+            let outline = NSBezierPath(roundedRect: annotations[i].bounds.insetBy(dx: -4, dy: -4), xRadius: 3, yRadius: 3)
+            outline.lineWidth = 1.5
+            NSColor.white.setStroke(); outline.stroke()
+            outline.setLineDash([4, 3], count: 2, phase: 0)
+            NSColor.black.setStroke(); outline.stroke()
+        }
         NSGraphicsContext.restoreGraphicsState()
     }
 
@@ -215,8 +235,13 @@ final class OverlayView: NSView {
                 let ring = NSBezierPath(ovalIn: r.insetBy(dx: i == colorIndex ? 1.5 : 4, dy: i == colorIndex ? 1.5 : 4))
                 ring.lineWidth = i == colorIndex ? 2 : 1
                 ring.stroke()
+            case .size:
+                // A dot that grows with the size; click cycles small → medium → large.
+                let d: CGFloat = [6, 10, 15][size.rawValue]
+                NSColor.white.setFill()
+                NSBezierPath(ovalIn: CGRect(x: r.midX - d / 2, y: r.midY - d / 2, width: d, height: d)).fill()
             case .undo:
-                drawSymbol("arrow.uturn.backward", in: r, size: 13, color: .white.withAlphaComponent(annotations.isEmpty ? 0.3 : 1))
+                drawSymbol("arrow.uturn.backward", in: r, size: 13, color: .white.withAlphaComponent(history.isEmpty && textField == nil ? 0.3 : 1))
             case .copyText:
                 drawSymbol("text.viewfinder", in: r, size: 14)
             case .capture:
@@ -305,8 +330,31 @@ final class OverlayView: NSView {
             for (rect, l, r, b, t) in handleRects() where rect.insetBy(dx: -4, dy: -4).contains(p) {
                 drag = .resize(left: l, right: r, bottom: b, top: t); return
             }
+            if selection.contains(p), let i = annotations.indices.reversed().first(where: { annotations[$0].hit(p, outlineOnly: tool != nil) }) {
+                if event.clickCount == 2, let text = annotations[i].text {
+                    // Double-click a text mark to edit it.
+                    let mark = annotations[i]
+                    change { annotations.remove(at: i) }
+                    selectedMark = nil
+                    beginText(at: mark.bounds.origin, text: text, color: mark.color, size: mark.size, exactOrigin: true)
+                    editingExistingText = true
+                    return
+                }
+                selectedMark = i
+                drag = .moveMark(index: i, last: p, moved: false)
+                needsDisplay = true
+                return
+            }
+            selectedMark = nil
             if let tool, selection.contains(p) {
-                if tool == .text { beginText(at: p) } else { drag = .draw(start: p) }
+                switch tool {
+                case .text: beginText(at: p, text: "", color: color, size: size)
+                case .step:
+                    let next = (annotations.compactMap(\.stepNumber).max() ?? 0) + 1
+                    change { annotations.append(Annotation(kind: .step(next, at: p), color: color, size: size)) }
+                default: drag = .draw(start: p)
+                }
+                needsDisplay = true
                 return
             }
             if event.clickCount == 2 && selection.contains(p) { capture(); return }
@@ -314,6 +362,7 @@ final class OverlayView: NSView {
                 drag = .move(offset: CGPoint(x: p.x - selection.minX, y: p.y - selection.minY)); return
             }
         }
+        selectedMark = nil
         drag = .create(start: p)
         selection = CGRect(origin: p, size: .zero)
         needsDisplay = true
@@ -340,12 +389,21 @@ final class OverlayView: NSView {
             if flipX || flipY { drag = .resize(left: flipX ? !l : l, right: flipX ? !r : r, bottom: flipY ? !b : b, top: flipY ? !t : t) }
         case .draw(let start):
             let rect = CGRect(x: min(start.x, p.x), y: min(start.y, p.y), width: abs(p.x - start.x), height: abs(p.y - start.y))
+            let kind: Annotation.Kind?
             switch tool {
-            case .arrow: draft = .arrow(from: start, to: p, color: color)
-            case .box: draft = .box(rect, color: color)
-            case .blur: draft = .blur(rect)
-            case .text, nil: break
+            case .arrow: kind = .arrow(from: start, to: p)
+            case .box: kind = .box(rect)
+            case .highlight: kind = .highlight(rect)
+            case .blur: kind = .blur(rect)
+            case .pen:
+                if case .pen(let points)? = draft?.kind { kind = .pen(points + [p]) } else { kind = .pen([start, p]) }
+            case .text, .step, nil: kind = nil
             }
+            draft = kind.map { Annotation(kind: $0, color: color, size: size) }
+        case .moveMark(let i, let last, let moved):
+            if !moved { history.append(annotations) } // one undo step per drag
+            annotations[i].move(by: p.x - last.x, p.y - last.y)
+            drag = .moveMark(index: i, last: p, moved: true)
         }
         needsDisplay = true
         window?.invalidateCursorRects(for: self)
@@ -354,7 +412,9 @@ final class OverlayView: NSView {
     override func mouseUp(with event: NSEvent) {
         if case .draw(let start) = drag, let d = draft {
             let p = convert(event.locationInWindow, from: nil)
-            if hypot(p.x - start.x, p.y - start.y) > 4 { annotations.append(d) }
+            let bigEnough: Bool
+            if case .pen(let points) = d.kind { bigEnough = points.count > 2 } else { bigEnough = hypot(p.x - start.x, p.y - start.y) > 4 }
+            if bigEnough { change { annotations.append(d) } }
         }
         draft = nil
         drag = .none
@@ -388,7 +448,10 @@ final class OverlayView: NSView {
         }
         if mode == .selection, hasSelection, let t = MarkupTool(keyCode: Int(event.keyCode)) { use(.tool(t)); return }
         switch Int(event.keyCode) {
-        case kVK_Escape: onCancel()
+        case kVK_Delete, kVK_ForwardDelete:
+            if let i = selectedMark { change { annotations.remove(at: i) }; selectedMark = nil }
+        case kVK_Escape:
+            if selectedMark != nil { selectedMark = nil; needsDisplay = true } else { onCancel() }
         case kVK_ANSI_S: use(.selection)
         case kVK_ANSI_C: use(.screen)
         case kVK_ANSI_W: use(.window)
@@ -443,16 +506,29 @@ final class OverlayView: NSView {
 
     // MARK: Markup
 
+    /// Records an undo step, then applies a change to the marks.
+    private func change(_ body: () -> Void) {
+        history.append(annotations)
+        body()
+        needsDisplay = true
+    }
+
     private func use(_ item: BarItem) {
         switch item {
         case .tool(let t):
             endText(keep: true)
             tool = tool == t ? nil : t
+            selectedMark = nil
+        case .size:
+            size = size.next
+            if let i = selectedMark { change { annotations[i].size = size } }
+            if let field = textField { textFieldSize = size; field.font = Markup.font(size); resizeTextField() }
         case .color(let i):
             colorIndex = i
             textField?.textColor = color
+            if let i = selectedMark, annotations[i].hasColor { change { annotations[i].color = color } }
         case .undo:
-            if textField != nil { endText(keep: false) } else if !annotations.isEmpty { annotations.removeLast() }
+            if textField != nil { endText(keep: false) } else if let previous = history.popLast() { annotations = previous; selectedMark = nil }
         case .copyText:
             copyText()
             return
@@ -464,11 +540,14 @@ final class OverlayView: NSView {
         window?.invalidateCursorRects(for: self)
     }
 
-    private var textLineHeight: CGFloat { ("Ag" as NSString).size(withAttributes: Markup.textAttributes(.white)).height }
+    private func textLineHeight(_ size: MarkupSize) -> CGFloat {
+        ("Ag" as NSString).size(withAttributes: Markup.textAttributes(.white, size)).height
+    }
 
-    private func beginText(at p: CGPoint) {
-        let field = NSTextField(string: "")
-        field.font = Markup.font
+    /// Opens a text field at `p` (centred on the click, or with its text origin exactly at `p` when editing).
+    private func beginText(at p: CGPoint, text: String, color: NSColor, size: MarkupSize, exactOrigin: Bool = false) {
+        let field = NSTextField(string: text)
+        field.font = Markup.font(size)
         field.textColor = color
         field.isBordered = false
         field.isBezeled = false
@@ -481,10 +560,22 @@ final class OverlayView: NSView {
         field.layer?.borderWidth = 1
         field.layer?.cornerRadius = 3
         field.delegate = self
-        field.frame = CGRect(x: p.x - 2, y: p.y - textLineHeight / 2, width: 60, height: textLineHeight + 2)
+        let h = textLineHeight(size)
+        let origin = exactOrigin ? CGPoint(x: p.x - 2, y: p.y - 1) : CGPoint(x: p.x - 2, y: p.y - h / 2)
+        field.frame = CGRect(origin: origin, size: CGSize(width: 60, height: h + 2))
+        textFieldSize = size
+        textField = field
+        resizeTextField()
         addSubview(field)
         window?.makeFirstResponder(field)
-        textField = field
+        field.currentEditor()?.selectedRange = NSRange(location: text.utf16.count, length: 0)
+    }
+
+    private func resizeTextField() {
+        guard let field = textField else { return }
+        let attrs = Markup.textAttributes(.white, textFieldSize)
+        let width = (field.stringValue as NSString).size(withAttributes: attrs).width
+        field.frame.size = CGSize(width: max(60, width + 12), height: textLineHeight(textFieldSize) + 2)
     }
 
     /// Turns the open text field (if any) into a text annotation, or discards it.
@@ -493,8 +584,10 @@ final class OverlayView: NSView {
         textField = nil
         let text = field.stringValue
         if keep, !text.trimmingCharacters(in: .whitespaces).isEmpty, let c = field.textColor {
-            annotations.append(.text(text, at: CGPoint(x: field.frame.minX + 2, y: field.frame.minY + 1), color: c))
+            let mark = Annotation(kind: .text(text, at: CGPoint(x: field.frame.minX + 2, y: field.frame.minY + 1)), color: c, size: textFieldSize)
+            if editingExistingText { annotations.append(mark) } else { change { annotations.append(mark) } }
         }
+        editingExistingText = false
         field.removeFromSuperview()
         window?.makeFirstResponder(self)
         needsDisplay = true
@@ -502,11 +595,7 @@ final class OverlayView: NSView {
 }
 
 extension OverlayView: NSTextFieldDelegate {
-    func controlTextDidChange(_ obj: Notification) {
-        guard let field = textField else { return }
-        let width = (field.stringValue as NSString).size(withAttributes: Markup.textAttributes(.white)).width
-        field.frame.size.width = max(60, width + 12)
-    }
+    func controlTextDidChange(_ obj: Notification) { resizeTextField() }
 
     func controlTextDidEndEditing(_ obj: Notification) { endText(keep: true) }
 
