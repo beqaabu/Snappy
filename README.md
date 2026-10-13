@@ -11,7 +11,7 @@ A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area
 - Lives in the menu bar, no Dock icon
 - Freezes the screen while you choose, so menus and tooltips stay put
 - Drag to select, then move or resize the selection before capturing
-- Quick markup on a selection: arrows, boxes, text and blur (for hiding passwords and personal info)
+- Quick markup on a selection: arrows, boxes, pen, highlighter, text, numbered steps and blur (for hiding passwords and personal info), all movable and editable
 - Copy the text in a selection instead of an image, recognized on your Mac
 - One-click full-screen and single-window captures
 - Remembers your last selection, so repeat shots of the same area take one click
@@ -40,10 +40,15 @@ A bar next to the selection has markup tools. Pick one, then draw inside the sel
 |---|---|---|
 | Arrow | `A` | Drag from the tail to the tip |
 | Box | `R` | Drag a rectangle outline |
+| Pen | `P` | Draw freehand |
+| Highlighter | `H` | Drag over text to highlight it; the text stays readable |
 | Text | `T` | Click where the text goes, type, press `Return` |
+| Steps | `N` | Click to drop numbered badges: 1, 2, 3… |
 | Blur | `B` | Drag over anything you want to hide; it's pixelated in the saved image |
 
-Pick a colour from the swatches, and undo with the ↩ button or `⌘Z`. Click the active tool again to go back to moving the selection.
+Hover any button to see what it does; while a tool is active, a caption under the bar says how to use it. Pick a colour from the swatches, and the dot button cycles the size (small, medium, large) for lines, text and badges. Click the active tool again to go back to moving the selection.
+
+**Editing marks:** click any mark to select it, then drag to move it, press `Delete` to remove it, or click a colour or the size dot to change it. Double-click text to edit it. `Esc` deselects. Undo (↩ or `⌘Z`) steps back through everything, including moves and deletions.
 
 ### Copy text
 
