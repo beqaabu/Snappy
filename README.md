@@ -15,7 +15,7 @@ A tiny, Ubuntu-style screenshot tool for macOS. Press one shortcut, pick an area
 - Copy the text in a selection instead of an image, recognized on your Mac
 - One-click full-screen and single-window captures
 - Remembers your last selection, so repeat shots of the same area take one click
-- Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard (both configurable)
+- Saves a PNG to `~/Pictures/Screenshots` and copies it to the clipboard (both configurable), named after the app you captured, e.g. `Screenshot 2026-10-13 at 09.05.07 (Safari).png`
 - Shows a preview in the corner: click to open it, drag it into any app
 - A few small Swift files, no dependencies
 
@@ -28,6 +28,7 @@ Press **⌘⇧2** (the default; change it in Settings), or click the menu bar ic
 | Selection | `S` | Drag a box. Drag inside it to move, drag the handles to resize. |
 | Screen | `C` | Capture the whole screen immediately. |
 | Window | `W` | Hover a window to highlight it, click to capture it. |
+| 3s Timer | `D` | Counts down 3 seconds (open a menu or hover something meanwhile), then captures your selection, or the whole screen if there's none |
 | ✕ | `Esc` | Cancel (right-click also cancels). |
 
 In Selection mode, click the blue camera button, press `Return`/`Space`, or double-click the selection to capture.
@@ -52,7 +53,7 @@ Hover any button to see what it does; while a tool is active, a caption under th
 
 ### Copy text
 
-Click the text button next to the camera (or press `⌘C`) to copy the text inside the selection instead of taking a picture: error messages, text in images, videos or apps that won't let you select it. Recognition runs on your Mac with Apple's Vision framework; nothing is uploaded. Anything you've blurred is left out.
+Click the text button next to the camera (or press `⌘C`) to copy the text inside the selection instead of taking a picture: error messages, text in images, videos or apps that won't let you select it. If the selection contains a QR code, its link is copied instead. Recognition runs on your Mac with Apple's Vision framework; nothing is uploaded. Anything you've blurred is left out.
 
 The capture covers the display the mouse pointer is on.
 
@@ -116,6 +117,10 @@ The code is in [`Sources/`](Sources). Beyond what Settings covers:
 - **Markup colours, line width and font:** [`Markup.swift`](Sources/Markup.swift)
 
 The README image is rendered from the real overlay over a mock desktop: `./tools/render-preview.sh`. The website lives in [`site/`](site); its link preview comes from `./tools/make-og.sh`. The app icon is drawn in code: `./tools/make-icon.sh`.
+
+## Tests
+
+`./tools/test.sh` runs the unit tests (shortcut parsing, version comparison, file naming, text row grouping). CI runs them on every push and pull request.
 
 ## Releasing
 

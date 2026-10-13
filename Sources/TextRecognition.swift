@@ -1,30 +1,41 @@
 import AppKit
 import Vision
 
-// MARK: - Copy text from a selection (on-device, via Vision)
+// MARK: - Copy text (and QR codes) from a selection, on-device via Vision
 
 enum TextRecognition {
-    /// Recognizes the text in an image, one line per row, top to bottom. Calls back on the main queue.
-    static func recognize(_ image: CGImage, completion: @escaping (String) -> Void) {
+    struct Result {
+        var text: String
+        var codes: [String] // QR and other barcode payloads, e.g. links
+    }
+
+    /// Recognizes text (one line per row, top to bottom) and barcodes in an image. Calls back on the main queue.
+    static func recognize(_ image: CGImage, completion: @escaping (Result) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            request.automaticallyDetectsLanguage = true
-            try? VNImageRequestHandler(cgImage: image).perform([request])
-            let text = lines(from: request.results ?? []).joined(separator: "\n")
-            DispatchQueue.main.async { completion(text) }
+            let text = VNRecognizeTextRequest()
+            text.recognitionLevel = .accurate
+            text.usesLanguageCorrection = true
+            text.automaticallyDetectsLanguage = true
+            let barcodes = VNDetectBarcodesRequest()
+            try? VNImageRequestHandler(cgImage: image).perform([text, barcodes])
+
+            let pieces = (text.results ?? []).compactMap { o in o.topCandidates(1).first.map { (box: o.boundingBox, text: $0.string) } }
+            var codes: [String] = []
+            for payload in (barcodes.results ?? []).compactMap(\.payloadStringValue) where !codes.contains(payload) {
+                codes.append(payload)
+            }
+            let result = Result(text: rows(pieces).joined(separator: "\n"), codes: codes)
+            DispatchQueue.main.async { completion(result) }
         }
     }
 
     /// Vision returns separate observations for pieces of text on the same row (e.g. table cells).
-    /// Group them into rows by vertical overlap and join each row left to right.
-    private static func lines(from observations: [VNRecognizedTextObservation]) -> [String] {
-        let pieces = observations.compactMap { o in o.topCandidates(1).first.map { (box: o.boundingBox, text: $0.string) } }
-            .sorted { $0.box.midY > $1.box.midY } // Vision's y axis points up
+    /// Groups them into rows by vertical overlap and joins each row left to right. Boxes use Vision's
+    /// normalized coordinates, with y pointing up.
+    static func rows(_ pieces: [(box: CGRect, text: String)]) -> [String] {
         var rows: [[(box: CGRect, text: String)]] = []
-        for piece in pieces {
-            if let last = rows.last?.first, abs(last.box.midY - piece.box.midY) < min(last.box.height, piece.box.height) / 2 {
+        for piece in pieces.sorted(by: { $0.box.midY > $1.box.midY }) {
+            if let first = rows.last?.first, abs(first.box.midY - piece.box.midY) < min(first.box.height, piece.box.height) / 2 {
                 rows[rows.count - 1].append(piece)
             } else {
                 rows.append([piece])
